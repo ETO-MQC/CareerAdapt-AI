@@ -40,6 +40,7 @@ import { invokeStructuredAi } from "@/ai/client";
 import { ResumeTailoringDiffModelOutputSchema, type ResumeTailoringDiffTaskInput } from "@/domain/schemas";
 import { analyzeJobFit, tailoringAnswerRevisionHash } from "@/services/jobs/tailoringService";
 import { CareerIntelligenceCache } from "@/domain/jobOptimization/careerIntelligence";
+import { readSessionProfileImpact } from "@/services/agent/profileImpactContext";
 import { stableHashText } from "@/services/security/text";
 import {
   FrozenProfileIntakeRequestSchema,
@@ -48,6 +49,8 @@ import {
   WorkspaceRepository
 } from "@/services/storage/repositories";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
+import { ProfileImpactProposalSchema } from "@/agent/contracts/profileImpactProposal";
+import { isSelectedProfileImpactCurrent, type SelectedProfileImpact } from "@/services/agent/selectedProfileImpact";
 import {
   ResumeArtifactReceiptSchema,
   resumeArtifactWriteCheckpointId,
@@ -1393,10 +1396,21 @@ export class BrowserAgentToolService implements AgentToolServices {
     };
   }
 
-  async listJobs(signal?: AbortSignal) {
+  async listJobs(signal?: AbortSignal, context?: AgentToolExecutionContext) {
     assertNotAborted(signal);
     const jobs = await this.repository.listAvailableJobDescriptions();
+    const binding = context?.careerSessionBinding;
+    const session = binding ? await this.repository.getAgentSession(binding.agentSessionId) : undefined;
+    const targetProfileId = (session?.taskState?.knownSlots.profileIntakeCommitOutcome as { targetProfileId?: unknown } | undefined)?.targetProfileId;
+    const pending = session && binding && session.personId === binding.personId && targetProfileId === binding.profileId
+      ? session.taskState?.knownSlots.profileImpactPendingInteraction as { kind?: unknown; prompt?: unknown; candidates?: unknown } | undefined
+      : undefined;
+    const candidates = Array.isArray(pending?.candidates) ? pending.candidates as Array<{ id?: unknown; updatedAt?: unknown; title?: unknown; company?: unknown }> : [];
+    const pendingValid = candidates.length > 0 && candidates.every(candidate => jobs.some(job => job.id === candidate.id
+      && job.updatedAt === candidate.updatedAt && job.title === candidate.title && job.company === candidate.company));
     return {
+      ...(pending && pendingValid ? { pendingInteraction: pending } : {}),
+      ...(pending && !pendingValid ? { pendingInteractionStale: true } : {}),
       jobs: jobs.map((job, index) => ({
         order: index + 1,
         id: job.id,
@@ -1407,6 +1421,51 @@ export class BrowserAgentToolService implements AgentToolServices {
         updatedAt: job.updatedAt
       }))
     };
+  }
+
+  async proposeProfileImpactSelection(rawInput: unknown, signal?: AbortSignal, context?: AgentToolExecutionContext) {
+    assertNotAborted(signal);
+    const binding = context?.careerSessionBinding;
+    if (!binding) throw toolError("career_session_binding_required", "请先选择当前人物和资料。 ");
+    const session = await this.repository.getAgentSession(binding.agentSessionId);
+    const outcome = session?.taskState?.knownSlots.profileIntakeCommitOutcome as { status?: unknown; targetProfileId?: unknown } | undefined;
+    if (!session || session.personId !== binding.personId || outcome?.status !== "COMMITTED_VERIFIED" || outcome.targetProfileId !== binding.profileId) {
+      throw toolError("profile_impact_receipt_required", "请先完成本次资料保存并核验，再选择要分析的岗位。");
+    }
+    const input = rawInput as { jobIds: string[]; clarificationRequired?: boolean; question?: string };
+    if (!input.jobIds.length || new Set(input.jobIds).size !== input.jobIds.length) throw toolError("impact_job_selection_invalid", "请选择需要分析的岗位。");
+    const jobs = await Promise.all(input.jobIds.map(id => this.repository.getAvailableJobDescription(id)));
+    if (jobs.some(job => !job)) throw toolError("impact_selected_job_unavailable", "所选岗位已不可用，请重新选择。");
+    const candidates = jobs.map((job, index) => ({ order: index + 1, id: job!.id, title: job!.title, company: job!.company, updatedAt: job!.updatedAt }));
+    return { jobIds: input.jobIds, clarificationRequired: input.clarificationRequired === true, candidates,
+      prompt: input.clarificationRequired ? input.question ?? "请确认你想分析哪一个岗位。" : "请在岗位选择区核对这些岗位，确认后才开始分析。" };
+  }
+
+  async proposeImpactReview(rawInput: unknown, signal?: AbortSignal, context?: AgentToolExecutionContext) {
+    assertNotAborted(signal);
+    const binding = context?.careerSessionBinding;
+    if (!binding) throw toolError("career_session_binding_required", "请先选择当前人物和资料。");
+    const session = await this.repository.getAgentSession(binding.agentSessionId);
+    const report = session?.taskState?.knownSlots.profileImpactReport as SelectedProfileImpact | undefined;
+    const proposal = ProfileImpactProposalSchema.safeParse(session?.taskState?.knownSlots.profileImpactProposal);
+    const input = rawInput as { proposalId: string; decisions: Array<{ index: number; decision: "accept" | "edit" | "reject"; editedValue?: string }> };
+    if (!session || session.personId !== binding.personId || !report || !proposal.success || proposal.data.id !== input.proposalId
+      || proposal.data.sessionId !== session.id || proposal.data.status !== "pending" || proposal.data.profileId !== binding.profileId
+      || !await isSelectedProfileImpactCurrent(this.repository, report)
+      || (await this.repository.getAvailableResumeBranch(proposal.data.branchId))?.currentRevisionId !== proposal.data.revisionId) {
+      throw toolError("impact_review_stale", "建议已变化，请重新分析并核对。");
+    }
+    if (new Set(input.decisions.map(decision => decision.index)).size !== input.decisions.length) throw toolError("impact_review_invalid", "请逐项明确审核选择。");
+    const decisions = input.decisions.map(decision => {
+      if (decision.index === 1) {
+        if (decision.decision === "edit" && (!proposal.data.editableDescription || !decision.editedValue)) throw toolError("impact_review_invalid", "请提供经历描述的编辑内容。");
+        return { ...decision, diffId: "profile_item" };
+      }
+      const diff = proposal.data.diffs[decision.index - 2];
+      if (!diff || (decision.decision === "edit" && !decision.editedValue)) throw toolError("impact_review_invalid", "修改编号或编辑内容无效。");
+      return { ...decision, diffId: tailoringDiffId(diff) };
+    });
+    return { proposalId: proposal.data.id, decisions, prompt: "已暂存审核选择；请在界面核对并明确应用。" };
   }
 
   async getActiveProfile(signal?: AbortSignal) {
@@ -1515,7 +1574,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     return { profileId: profile.id, query: input.query, results };
   }
 
-  async retrieveCareerContext(rawInput: unknown, signal?: AbortSignal) {
+  async retrieveCareerContext(rawInput: unknown, signal?: AbortSignal, context?: AgentToolExecutionContext) {
     assertNotAborted(signal);
     const input = CareerContextRetrieveInputSchema.parse(rawInput);
     const [profile, job, resume] = await Promise.all([
@@ -1535,13 +1594,15 @@ export class BrowserAgentToolService implements AgentToolServices {
     const requirementMatches = job
       ? await this.repository.listRequirementMatches(profile.id, job.id)
       : undefined;
-    return retrieveCareerContext({
+    const result = retrieveCareerContext({
       request: input,
       profile,
       ...(job ? { job } : {}),
       ...(resume ? { resume } : {}),
       ...(requirementMatches ? { requirementMatches } : {})
     });
+    const profileImpact = await readSessionProfileImpact(this.repository, context, input.jobId);
+    return { ...result, ...(profileImpact ? { profileImpact } : {}) };
   }
 
   async getResume(rawInput: unknown, signal?: AbortSignal) {
@@ -2184,7 +2245,13 @@ export class BrowserAgentToolService implements AgentToolServices {
     await this.repository.saveResumeArtifactWriteCheckpoint(checkpoint);
 
     try {
-      const result = await this.repository.deriveAndApplyTailoringDiffsAtomic({
+      const result = session.branch.branchPurpose === "job_specific" && session.branch.jobId === session.job.id
+        ? await this.repository.applyTailoringDiffs({
+          branchId: session.branch.id, jobId: session.job.id, expectedBranchRevision: session.branch.revision,
+          expectedRevisionId: session.branch.currentRevisionId, expectedProfileRevision: session.profile.version,
+          expectedJobRevision: session.job.updatedAt, diffs: reviewed, confirmedRequirementIds: input.confirmedRequirementIds, operationId
+        })
+        : await this.repository.deriveAndApplyTailoringDiffsAtomic({
         sourceBranchId: session.branch.id,
         targetProfileId: session.profile.id,
         jobId: session.job.id,
@@ -2197,7 +2264,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         confirmedRequirementIds: input.confirmedRequirementIds,
         operationId,
         name: `${session.branch.name} · ${session.job.title}`.slice(0, 120)
-      });
+        });
       assertNotAborted(signal);
       if (!result.revision || result.appliedDiffs.length === 0 || result.beforeContentHash === result.afterContentHash) {
         throw toolError("tailoring_apply_verification_failed", "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。");

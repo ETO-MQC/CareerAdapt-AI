@@ -9,13 +9,16 @@ import { CareerToolGateway, CareerToolGatewayExecutor } from "@/agent/tools/Care
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
-import { CareerProfileSchema } from "@/domain/schemas";
+import { CareerProfileSchema, JobDescriptionSchema, type ResumeTailoringDiff } from "@/domain/schemas";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import { recoverProfileIntakeCommit } from "@/agent/runtime/profileIntakeCommitRecovery";
 import { adaptConversationMessageToIntakeDraft, buildConversationIntakeReviewProjectionFromDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
+import { resolveCareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
+import { buildJobBranchFromProfile } from "@/domain/branch/profileBranch";
+import { analyzeJobDescriptionV4 } from "@/domain/jobOptimization/v4/analyze";
 let db: CareerAdaptDb;
 afterEach(async () => { db?.close(); if (db) await db.delete(); });
 it("projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation", async () => {
@@ -161,6 +164,7 @@ it("only queries the receipt when an unknown frozen confirmation has no receipt"
     messages: [{ id: "confirm-message", turnId: "confirm-turn", role: "user" as const, content: text,
       kind: "text" as const, type: "text" as const, status: "complete" as const, createdAt: now }] };
   const task = new AgentTaskStateReducer().create(initial, "profile_intake");
+  task.selectedEntities.profileVersion = profile.version;
   const persistence = new AgentSessionStore(repository);
   const session = await persistence.save({ ...initial, taskState: { ...task, knownSlots: { ...task.knownSlots,
     profileIntakeCommitOutcome: { status: "UNKNOWN", operationId: request.operationId, importId: request.importId,
@@ -221,10 +225,30 @@ it.each(["normal", "not_sent", "response_lost", "conflict", "stale_before"] as c
   db = new CareerAdaptDb(`intake-first-confirm-${crypto.randomUUID()}`);
   const repository = new WorkspaceRepository(db);
   const now = new Date().toISOString();
+  const oldFact = { id: "old-fact", statement: "参与课程项目。", category: "experience", confirmedByUser: true, riskLevel: "low",
+    createdAt: now, updatedAt: now, provenance: [{ sourceType: "user_input", sourceId: "old-source", sourceText: "参与课程项目。",
+      confidence: 1, confirmedByUser: true, riskLevel: "low", createdAt: now }] };
+  const oldData = mode === "normal" ? { experiences: [{ id: "old-exp", type: "project", organization: "旧项目", role: "成员",
+    facts: [oldFact], resumeDrafts: [], tags: [], evidenceIds: [], createdAt: now, updatedAt: now }],
+    structuredFacts: [{ data: { id: "old-item", sectionType: "project", title: "旧项目", current: false,
+      description: "参与课程项目。", highlights: [], outcomes: [], tools: [], customFields: [] },
+    factIds: [oldFact.id], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }] } : { experiences: [] };
   const profile = await repository.saveProfile(CareerProfileSchema.parse({ id: "first-profile", createdAt: now, updatedAt: now,
     version: 1, schemaVersion: "career-profile-v2", name: "匿名", basics: { name: "匿名", links: [] },
-    preference: { targetRoles: [], targetCities: [], industries: [] }, experiences: [], skills: [], evidence: [] }));
+    preference: { targetRoles: [], targetCities: [], industries: [] }, ...oldData, skills: [], evidence: [] }));
   await repository.setActiveProfileId(profile.id);
+  const jobText = "岗位职责\n参与示例数据分析项目。\n任职要求\n具备数据分析实践经验。";
+  const jobA = JobDescriptionSchema.parse({ id: "impact-job-a", title: "数据岗位", company: null, source: "manual", rawText: jobText,
+    requirementGraph: analyzeJobDescriptionV4({ rawText: jobText }).graph, createdAt: now, updatedAt: now });
+  let existingJob: ReturnType<typeof buildJobBranchFromProfile> | undefined;
+  if (mode === "normal") {
+    await repository.saveJobDescription(jobA);
+    existingJob = buildJobBranchFromProfile({ profile, jobId: jobA.id, jobTitle: jobA.title, jobVersion: jobA.updatedAt,
+      operationId: "impact-existing-branch", name: "已有岗位简历", selectedCanonicalItemIds: ["old-item"],
+      requirementMatchIds: [], sourceMatchSetHash: "existing-match", now });
+    await repository.saveResumeBranch(existingJob.branch);
+    await db.resumeRevisions.put(existingJob.firstRevision);
+  }
   const raw = "我参与了示例数据分析项目。";
   const prepared = adaptConversationMessageToIntakeDraft({ sessionId: "first-session", messageId: "source-message",
     turnId: "source-turn", text: raw, capturedAt: now, semanticResult: { mode: "ai", providerStatus: "available",
@@ -238,17 +262,20 @@ it.each(["normal", "not_sent", "response_lost", "conflict", "stale_before"] as c
     candidateId: draft.sections[0].items[0].id, decision: "accept" });
   const reviewed = (await repository.getImportedResumeDraft(draft.importId))!;
   const projection = buildConversationIntakeReviewProjectionFromDraft(reviewed);
-  const initial = { ...AgentRuntime.create("guided_profile_intake", "final_review"), id: "first-session", personId: profile.personId,
+  const initial = { ...AgentRuntime.create("guided_profile_intake", "final_review"), id: "first-session", personId: profile.personId, activeProfileId: profile.id,
+    profileVersionNumber: profile.profileVersionNumber ?? 1, profileRevision: profile.version,
     messages: [{ id: "confirm-message", turnId: "confirm-turn", role: "user" as const, content: "确认",
       kind: "text" as const, type: "text" as const, status: "complete" as const, createdAt: now }] };
   const task = new AgentTaskStateReducer().create(initial, "profile_intake");
+  task.selectedEntities.profileVersion = profile.version;
   const persistence = new AgentSessionStore(repository);
   const session = await persistence.save({ ...initial, taskState: { ...task, knownSlots: { ...task.knownSlots,
     targetProfileId: profile.id, expectedProfileVersion: profile.version, intakeImportId: reviewed.importId,
     expectedIntakeDraftRevision: reviewed.revision, profileIntakeReviewProjection: projection } } });
   const registry = createAgentToolRegistry(service);
   const gateway = new CareerToolGateway({ registry, executor: new AgentExecutor(registry) });
-  const host = new AgentHostStore({ repository, persistence, executor: new CareerToolGatewayExecutor(registry, gateway) });
+  const executor = new CareerToolGatewayExecutor(registry, gateway);
+  const host = new AgentHostStore({ repository, persistence, executor });
   const adopted = (await host.adoptDurably(session))!;
   const realCommit = repository.confirmProfileIntake.bind(repository);
   let persistedBeforeWrite = false;
@@ -316,10 +343,131 @@ it.each(["normal", "not_sent", "response_lost", "conflict", "stale_before"] as c
     const recovered = await host.dispatch({ type: "artifact_action", action: { type: "profile_intake_recover",
       operationId: originalOutcome!.operationId, mode: "replay" } }, { session: restored, pageContext: { pathname: "/ai-workspace", query: {} } });
     expect(recovered?.taskState?.knownSlots.profileIntakeCommitOutcome).toMatchObject({ status: mode === "not_sent" ? "UNKNOWN" : "COMMITTED_VERIFIED", operationId: originalOutcome!.operationId });
+    if (mode === "response_lost") expect(recovered?.taskState).toMatchObject({ stage: "profile_complete", completionStatus: "waiting_for_user" });
     expect(commit).toHaveBeenCalledTimes(1);
   }
   if (mode === "normal") {
+    expect(result.taskState?.knownSlots.profileImpactEvidence).toMatchObject({ status: "ready", personId: profile.personId,
+      profileId: profile.id, profileRevision: profile.version + 1, operationId: originalOutcome!.operationId });
+    const job = jobA;
+    await repository.saveJobDescription(job);
+    await repository.saveJobDescription({ ...job, id: "impact-job-b", title: "运营岗位" });
+    await repository.saveJobDescription({ ...job, id: "impact-job-unselected", title: "其他岗位" });
+    const persisted = (await persistence.get(result.id))!;
+    expect({ personId: persisted.personId, activeProfileId: persisted.activeProfileId, profileRevision: persisted.profileRevision, profileVersionNumber: persisted.profileVersionNumber, selected: persisted.taskState?.selectedEntities }).toMatchObject({ personId: profile.personId, activeProfileId: profile.id, profileRevision: profile.version + 1, profileVersionNumber: 1, selected: { profileId: profile.id, profileVersion: profile.version + 1 } });
+    const initialBinding = resolveCareerSessionBinding({ sessionId: persisted.id, session: persisted });
+    expect(initialBinding).toEqual({ agentSessionId: result.id, personId: profile.personId!, profileId: profile.id,
+      profileVersionNumber: profile.profileVersionNumber ?? 1, profileRevision: profile.version + 1 });
+    const suggested = await gateway.execute("career.job.propose_impact_selection", { jobIds: [job.id, "impact-job-b"] },
+      { agentSessionId: result.id, operationId: "impact-selection-suggestion", careerSessionBinding: initialBinding! });
+    expect(suggested.ok).toBe(true);
+    expect(suggested.data).toMatchObject({ jobIds: [job.id, "impact-job-b"] });
+    const staged = new AgentTaskStateReducer().reduce(result.taskState!, { type: "tool_observation",
+      toolName: "propose_profile_impact_selection", observation: suggested.data });
+    expect(staged.knownSlots.profileImpactPendingSelection).toEqual([job.id, "impact-job-b"]);
+    const clarification = await gateway.execute("career.job.propose_impact_selection", {
+      jobIds: [job.id, "impact-job-b"], clarificationRequired: true, question: "你想分析哪一个岗位？"
+    }, { agentSessionId: result.id, operationId: "impact-selection-clarify", careerSessionBinding: initialBinding! });
+    expect(clarification.ok).toBe(true);
+    expect(clarification.data).toMatchObject({ clarificationRequired: true, candidates: [
+      { order: 1, id: job.id }, { order: 2, id: "impact-job-b" }
+    ] });
+    const pending = new AgentTaskStateReducer().reduce(result.taskState!, { type: "tool_observation",
+      toolName: "propose_profile_impact_selection", observation: clarification.data });
+    expect(pending.knownSlots.profileImpactPendingSelection).toEqual([]);
+    expect(pending.knownSlots.profileImpactPendingInteraction).toMatchObject({ kind: "clarify_jobs",
+      jobIds: [job.id, "impact-job-b"] });
+    await persistence.save({ ...result, id: "impact-clarification-session", taskState: pending });
+    const recalled = await gateway.execute("career.job.list", {}, { agentSessionId: "impact-clarification-session",
+      operationId: "impact-selection-recall", careerSessionBinding: { ...initialBinding!, agentSessionId: "impact-clarification-session" } });
+    expect(recalled.data).toMatchObject({ pendingInteraction: { kind: "clarify_jobs", candidates: [
+      { order: 1, id: job.id }, { order: 2, id: "impact-job-b" }
+    ] } });
+    const second = await gateway.execute("career.job.propose_impact_selection", { jobIds: ["impact-job-b"] },
+      { agentSessionId: "impact-clarification-session", operationId: "impact-selection-second",
+        careerSessionBinding: { ...initialBinding!, agentSessionId: "impact-clarification-session" } });
+    const resolved = new AgentTaskStateReducer().reduce(pending, { type: "tool_observation",
+      toolName: "propose_profile_impact_selection", observation: second.data });
+    expect(resolved.knownSlots.profileImpactPendingSelection).toEqual(["impact-job-b"]);
+    expect(resolved.knownSlots.profileImpactPendingInteraction).toMatchObject({ kind: "confirm_jobs" });
+    const resumesBefore = await repository.listResumeBranches();
+    const active = (await host.adoptDurably(result))!;
+    const analyzed = await host.dispatch({ type: "artifact_action", action: { type: "profile_impact_analyze",
+      operationId: originalOutcome!.operationId, jobIds: [job.id, "impact-job-b"] } },
+    { session: active, pageContext: { pathname: "/ai-workspace", query: {} } });
+    const report = analyzed?.taskState?.knownSlots.profileImpactReport as { jobs: Array<{ jobId: string; status: string }> };
+    expect(report.jobs.map(item => item.jobId)).toEqual([job.id, "impact-job-b"]);
+    expect(report.jobs.every(item => item.status === "ANALYZED")).toBe(true);
+    expect(analyzed?.artifactRefs.some(item => item.kind === "resume_impact")).toBe(true);
+    expect(await repository.listResumeBranches()).toEqual(resumesBefore);
+    const reportData = analyzed!.taskState!.knownSlots.profileImpactReport as { changes: Array<{ id: string }> };
+    const proposalSession = await host.dispatch({ type: "artifact_action", action: { type: "profile_impact_prepare", jobId: job.id,
+      branchId: existingJob!.branch.id, itemId: reportData.changes[0].id } },
+    { session: analyzed!, pageContext: { pathname: "/ai-workspace", query: {} } });
+    const proposal = proposalSession!.taskState!.knownSlots.profileImpactProposal as { id: string; status: string };
+    expect(proposal.status).toBe("pending");
+    expect(await repository.getResumeBranch(existingJob!.branch.id)).toEqual(existingJob!.branch);
+    const ignored = await host.dispatch({ type: "artifact_action", action: { type: "profile_impact_decide", proposalId: proposal.id, decision: "ignore" } },
+      { session: proposalSession!, pageContext: { pathname: "/ai-workspace", query: {} } });
+    expect(await repository.getResumeBranch(existingJob!.branch.id)).toEqual(existingJob!.branch);
+    const proposedAgain = await host.dispatch({ type: "artifact_action", action: { type: "profile_impact_prepare", jobId: job.id,
+      branchId: existingJob!.branch.id, itemId: reportData.changes[0].id } },
+    { session: ignored!, pageContext: { pathname: "/ai-workspace", query: {} } });
+    const nextProposal = proposedAgain!.taskState!.knownSlots.profileImpactProposal as { id: string };
+    const oldItem = existingJob!.branch.structuredContentItems!.find(item => item.data.sectionType === "project")!;
+    if (oldItem.data.sectionType !== "project") throw new Error("project_fixture_expected");
+    const diff: ResumeTailoringDiff = { target: { sectionId: "project", itemId: oldItem.id, fieldPath: "description" },
+      operation: "replace", original: oldItem.data.description!, value: "参与课程项目工作。", reason: "清晰说明已有经历",
+      requirementIds: [], targetKeywords: [], supportLevel: "verified", evidenceRefs: [{ type: "experience_fact", experienceId: "old-exp",
+        factId: oldFact.id, factText: oldFact.statement, factQuote: oldFact.statement }] };
+    const ignoredDiff = { ...diff, value: "参与课程项目并完成成果。" };
+    const executeReal = executor.execute.bind(executor);
+    vi.spyOn(executor, "execute").mockImplementation(async args => {
+      if (args.toolName !== "generate_tailoring_changes") return executeReal(args);
+      const input = args.toolInput as { session: { plan: object } };
+      return { ok: true, toolName: args.toolName, operationId: args.operationId, artifactIds: [], completedAt: now,
+        data: { session: { ...input.session, plan: { ...input.session.plan, diffs: [diff, ignoredDiff] } } } };
+    });
+    const stagedReview = await host.dispatch({ type: "artifact_action", action: { type: "profile_impact_decide", proposalId: nextProposal.id, decision: "generate" } },
+      { session: proposedAgain!, pageContext: { pathname: "/ai-workspace", query: {} } });
+    expect((stagedReview!.taskState!.knownSlots.profileImpactProposal as { diffs: unknown[] }).diffs).toHaveLength(2);
+    const naturalReview = await gateway.execute("career.resume.propose_impact_review", { proposalId: nextProposal.id, decisions: [
+      { index: 1, decision: "accept" }, { index: 2, decision: "edit", editedValue: "参与了课程项目。" }, { index: 3, decision: "reject" }
+    ] }, { agentSessionId: stagedReview!.id, operationId: "impact-natural-review", careerSessionBinding: initialBinding! });
+    expect(naturalReview.ok).toBe(true);
+    const reviewState = new AgentTaskStateReducer().reduce(stagedReview!.taskState!, { type: "tool_observation",
+      toolName: "propose_impact_review", observation: naturalReview.data });
+    const reviewed = await persistence.save({ ...stagedReview!, taskState: reviewState });
+    expect(await repository.getResumeBranch(existingJob!.branch.id)).toEqual(existingJob!.branch);
+    const confirmed = await host.dispatch({ type: "artifact_action", action: { type: "profile_impact_decide", proposalId: nextProposal.id, decision: "confirm" } },
+      { session: reviewed!, pageContext: { pathname: "/ai-workspace", query: {} } });
+    expect(confirmed?.taskState?.knownSlots.profileImpactProposal).toMatchObject({ status: "applied" });
+    expect((await repository.getResumeBranch(existingJob!.branch.id))?.revision).toBe(existingJob!.branch.revision + 1);
+    expect(JSON.stringify(await repository.getResumeBranch(existingJob!.branch.id))).toContain("参与了课程项目。");
+    expect(JSON.stringify(await repository.getResumeBranch(existingJob!.branch.id))).not.toContain("参与课程项目并完成成果。");
+    expect(await repository.getResumeRevision(existingJob!.firstRevision.id)).toEqual(existingJob!.firstRevision);
+    const binding = { agentSessionId: analyzed!.id, personId: profile.personId!, profileId: profile.id,
+      profileVersionNumber: profile.profileVersionNumber ?? 1, profileRevision: profile.version + 1 };
+    const impactRead = await gateway.execute("career.context.retrieve", { profileId: profile.id, query: "岗位影响" }, {
+      agentSessionId: analyzed!.id, operationId: "impact-context-current", careerSessionBinding: binding });
+    expect(impactRead.ok).toBe(true);
+    expect(impactRead.data).toMatchObject({ profileImpact: { sessionId: analyzed!.id, status: "current", jobs: [
+      { jobId: job.id }, { jobId: "impact-job-b" }
+    ] } });
+    await repository.saveJobDescription({ ...job, title: "数据岗位已更新" });
+    const staleCandidates = await gateway.execute("career.job.list", {}, { agentSessionId: "impact-clarification-session",
+      operationId: "impact-selection-stale", careerSessionBinding: { ...initialBinding!, agentSessionId: "impact-clarification-session" } });
+    expect(staleCandidates.data).toMatchObject({ pendingInteractionStale: true });
+    expect(staleCandidates.data).not.toHaveProperty("pendingInteraction");
+    const staleRead = await gateway.execute("career.context.retrieve", { profileId: profile.id, query: "岗位影响" }, {
+      agentSessionId: analyzed!.id, operationId: "impact-context-stale", careerSessionBinding: binding });
+    expect(staleRead.data).toMatchObject({ profileImpact: { status: "stale", jobs: [] } });
     const freshSession = AgentRuntime.createConversationSession();
+    await persistence.save(freshSession);
+    const freshContext = await gateway.execute("career.context.retrieve", { profileId: profile.id, query: "岗位影响" }, {
+      agentSessionId: freshSession.id, operationId: "impact-context-fresh", careerSessionBinding: { ...binding, agentSessionId: freshSession.id } });
+    expect(freshContext.ok).toBe(true);
+    expect(freshContext.data).not.toHaveProperty("profileImpact");
     const retrieved = await gateway.execute("career.profile.get", { profileId: profile.id }, {
       agentSessionId: freshSession.id, userMessageId: "fresh-session-message", operationId: "fresh-session-profile-read",
       careerSessionBinding: { agentSessionId: freshSession.id, personId: profile.personId!, profileId: profile.id,
@@ -329,6 +477,27 @@ it.each(["normal", "not_sent", "response_lost", "conflict", "stale_before"] as c
     expect(JSON.stringify(retrieved)).toContain("示例数据分析");
   }
   expect((await repository.getProfile(profile.id))?.version).toBe(profile.version + (mode === "not_sent" ? 0 : mode === "conflict" || mode === "stale_before" ? 2 : 1));
+});
+
+it("keeps an impact answer visible while the intake workflow remains unfinished", async () => {
+  db = new CareerAdaptDb(`ux011-impact-answer-${crypto.randomUUID()}`);
+  const repository = new WorkspaceRepository(db);
+  const persistence = new AgentSessionStore(repository);
+  const service = new BrowserAgentToolService(repository);
+  const registry = createAgentToolRegistry(service);
+  const gateway = new CareerToolGateway({ registry, executor: new AgentExecutor(registry) });
+  const host = new AgentHostStore({ repository, persistence, executor: new CareerToolGatewayExecutor(registry, gateway) });
+  const initial = AgentRuntime.create("guided_profile_intake", "structure_facts");
+  const task = new AgentTaskStateReducer().create(initial, "profile_intake");
+  const session = await persistence.save({ ...initial, taskState: { ...task, stage: "structure_facts",
+    completionStatus: "waiting_for_user", knownSlots: { ...task.knownSlots, profileImpactReport: { binding: { profileId: "profile" } } } } });
+  host.adopt(session);
+  const shell = await host.beginRuntimeShell({ session, userMessage: "这段经历对岗位有什么帮助？", runtimeId: "hermes" });
+  const final = await host.applyRuntimeEvent({ type: "turn_completed", sessionId: session.id, turnId: shell.turnId,
+    timestamp: new Date().toISOString(), message: "岗位要求：数据分析；证据：已确认项目。" }, shell.assistantMessageId);
+  expect(final?.messages.find(message => message.id === shell.assistantMessageId)?.content).toContain("岗位要求：数据分析");
+  expect(final?.taskState).toMatchObject({ stage: "structure_facts" });
+  expect(final?.taskState?.completionStatus).not.toBe("completed");
 });
 
 it("persists an analyze-only target and clears old job/fit ownership when another JD is analyzed", async () => {

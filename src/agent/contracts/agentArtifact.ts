@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const AgentArtifactKindSchema = z.enum([
   "profile_intake_review",
+  "resume_impact",
   "resume_import_review",
   "job_semantic_review",
   "job_fit_overview",

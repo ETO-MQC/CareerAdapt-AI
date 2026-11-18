@@ -106,6 +106,18 @@ export function classifyTurnIntent(input: {
     ? ["failed", "completed", "cancelled"].includes(input.taskState.completionStatus)
     : false;
 
+  const impactProposal = input.taskState?.knownSlots.profileImpactProposal;
+  if (impactProposal && typeof impactProposal === "object" && !Array.isArray(impactProposal)
+    && (impactProposal as { status?: unknown }).status === "pending") {
+    return decision("continue_current_task", "preserve", "domain");
+  }
+
+  // A question asked from an impact report is a read-only follow-up. Preserve
+  // the report and allow the existing context tool to ground the answer.
+  if (input.taskState?.knownSlots.profileImpactReport && (isReadOnlyCareerQuestion(text) || text.endsWith("？") || text.endsWith("?"))) {
+    return decision("casual_side_turn", "preserve", "domain");
+  }
+
   const activeQuestion = input.taskState?.workflowId === "guided_profile_intake"
     ? activeQuestionContext(input.taskState)
     : undefined;

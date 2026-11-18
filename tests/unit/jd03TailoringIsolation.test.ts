@@ -35,6 +35,34 @@ async function fixture() {
 }
 
 describe("JD-03 formal isolated revision acceptance", () => {
+  it("applies an edited review to an existing matching job branch as one new revision", async () => {
+    const f = await fixture();
+    const firstReview = reviewTailoringDiffCommand({ operationId: "existing-first-review", session: f.sessionFor(0), diffId: tailoringDiffId(f.diff), decision: "accept" });
+    const first = await f.service.applyTailoringChanges({ session: firstReview.session, selectedDiffs: firstReview.selectedDiffs, confirmedRequirementIds: [] }, "existing-first-apply");
+    const branch = (await f.repository.getResumeBranch(first.resultResumeId))!;
+    const oldRevision = await f.repository.getResumeRevision(first.resultResumeRevisionId);
+    const general = await f.repository.getResumeBranch(f.general.branch.id);
+    const profile = await f.repository.getProfile(demoCareerProfile.id);
+    const diff: ResumeTailoringDiff = { ...f.diff, original: f.diff.value, value: "基于已核验经历，展示相关项目交付。" };
+    const created = createTailoringSessionCommand({ operationId: "existing-next-session", profile: demoCareerProfile, branch, job: f.jobs[0] }).session;
+    const session = TailoringSessionSchema.parse({ ...created, plan: { ...created.plan, diffs: [diff], diffReviews: [] } });
+    const edited = "基于已核验经历，展示目标岗位相关交付。";
+    const reviewed = reviewTailoringDiffCommand({ operationId: "existing-next-review", session, diffId: tailoringDiffId(diff), decision: "edit", editedValue: edited });
+    expect(await f.repository.getResumeBranch(branch.id)).toEqual(branch);
+    const applied = await f.service.applyTailoringChanges({ session: reviewed.session, selectedDiffs: reviewed.selectedDiffs, confirmedRequirementIds: [] }, "existing-next-apply");
+    const current = (await f.repository.getResumeBranch(branch.id))!;
+    expect(applied.resultResumeId).toBe(branch.id);
+    expect(current.revision).toBe(branch.revision + 1);
+    expect(current.currentRevisionId).toBe(applied.resultResumeRevisionId);
+    expect(JSON.stringify(current.structuredContentItems)).toContain(edited);
+    expect(await f.repository.getResumeRevision(first.resultResumeRevisionId)).toEqual(oldRevision);
+    expect(await f.repository.getResumeBranch(f.general.branch.id)).toEqual(general);
+    expect(await f.repository.getProfile(demoCareerProfile.id)).toEqual(profile);
+    const revisionCount = (await f.repository.listResumeRevisions(branch.id)).length;
+    await expect(f.service.applyTailoringChanges({ session: reviewed.session, selectedDiffs: reviewed.selectedDiffs,
+      confirmedRequirementIds: [] }, "existing-stale-apply")).rejects.toThrow();
+    expect((await f.repository.listResumeRevisions(branch.id)).length).toBe(revisionCount);
+  });
   it("applies only reviewed changes to two independent jobs, replays idempotently and restores exact lineage after reopening", async () => {
     const f = await fixture();
     const sourceBefore = await f.repository.getResumeBranch(f.general.branch.id);

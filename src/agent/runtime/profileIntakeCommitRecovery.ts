@@ -1,6 +1,7 @@
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { stableStringify } from "@/services/export/snapshot";
 import type { ProfileIntakeOperationRequest, WorkspaceRepository } from "@/services/storage/repositories";
+import { buildProfileReceiptEvidence } from "@/domain/resumeComposition/profileReceiptEvidence";
 
 /** Read-only recovery: a missing receipt is not proof that a write did not commit. */
 export async function recoverProfileIntakeCommit(
@@ -30,7 +31,13 @@ export async function recoverProfileIntakeCommit(
       || receipt.committedFacts.some((fact) => facts.get(fact.id) !== fact.content)) {
       return { status: "COMMITTED_READBACK_UNVERIFIED" as const, receipt };
     }
-    return { status: "COMMITTED_VERIFIED" as const, receipt };
+    try {
+      const evidence = buildProfileReceiptEvidence({ personId: request.personId, operationId: request.operationId, profile, receipt });
+      return { status: "COMMITTED_VERIFIED" as const, receipt, evidence };
+    } catch (error) {
+      return { status: "COMMITTED_VERIFIED" as const, receipt,
+        evidenceError: error instanceof Error ? error.message : "profile_evidence_build_failed" };
+    }
   } catch {
     return { status: "COMMITTED_READBACK_UNVERIFIED" as const, receipt };
   }

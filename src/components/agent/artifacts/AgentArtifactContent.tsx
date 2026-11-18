@@ -17,6 +17,8 @@ import {
 import { RESUME_SECTION_TYPES_V2, resumeFieldCatalog, resumeSectionById, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
+import { ProfileImpactReport } from "../ProfileImpactReport";
+import type { SelectedProfileImpact } from "@/services/agent/selectedProfileImpact";
 
 export function AgentArtifactContent({
   artifact,
@@ -162,6 +164,12 @@ const tailoringDiagnostics = readTailoringDiagnostics(taskState?.knownSlots.tail
   const additionIntake = arrayOfRecords(intakeArtifact.additions);
   const intakeSources = arrayOfRecords(intakeArtifact.sources);
 
+  if (artifact?.kind === "resume_impact") {
+    return <div className="agent-artifact-content">{taskState?.knownSlots.profileImpactReport
+      ? <ProfileImpactReport report={taskState.knownSlots.profileImpactReport as SelectedProfileImpact}
+          proposal={taskState.knownSlots.profileImpactProposal} onArtifactAction={onArtifactAction} />
+      : <p>报告不可用，请重新分析所选岗位。</p>}</div>;
+  }
   return (
     <div className="agent-artifact-content">
       {isTailoringWorkspace ? (

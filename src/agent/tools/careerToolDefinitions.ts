@@ -30,6 +30,7 @@ export const CAREER_TOOL_DEFINITIONS: CareerToolDefinition[] = [
   { name: "career.resume.apply_precise_edit", sourceToolName: "apply_precise_resume_edit", namespace: "career.resume", readWrite: "write", personProfileBinding: "required" },
   { name: "career.resume.list", sourceToolName: "list_resumes", namespace: "career.resume", readWrite: "read", personProfileBinding: "optional", hermesProduction: true },
   { name: "career.resume.get", sourceToolName: "get_resume", namespace: "career.resume", readWrite: "read", personProfileBinding: "optional", hermesProduction: true },
+  { name: "career.resume.propose_impact_review", sourceToolName: "propose_impact_review", namespace: "career.resume", readWrite: "read", personProfileBinding: "required", hermesProduction: true },
   { name: "career.resume.get_revision", sourceToolName: "get_resume_revision", namespace: "career.resume", readWrite: "read", personProfileBinding: "optional" },
   { name: "career.resume.recommend_source", sourceToolName: "recommend_resume_source", namespace: "career.resume", readWrite: "read", personProfileBinding: "optional" },
   { name: "career.resume.create_from_profile", sourceToolName: "create_resume_from_profile", namespace: "career.resume", readWrite: "write", personProfileBinding: "required" },
@@ -51,6 +52,7 @@ export const CAREER_TOOL_DEFINITIONS: CareerToolDefinition[] = [
 
   { name: "career.job.list", sourceToolName: "list_jobs", namespace: "career.job", readWrite: "read", personProfileBinding: "none", hermesProduction: true },
   { name: "career.job.get", sourceToolName: "get_job", namespace: "career.job", readWrite: "read", personProfileBinding: "none", hermesProduction: true },
+  { name: "career.job.propose_impact_selection", sourceToolName: "propose_profile_impact_selection", namespace: "career.job", readWrite: "read", personProfileBinding: "required", hermesProduction: true },
   { name: "career.job.parse", sourceToolName: "parse_job_description", namespace: "career.job", readWrite: "write", personProfileBinding: "none" },
   { name: "career.job.commit", sourceToolName: "commit_job", namespace: "career.job", readWrite: "write", personProfileBinding: "none" },
   { name: "career.job.analyze_fit", sourceToolName: "analyze_job_fit", namespace: "career.job", readWrite: "read", personProfileBinding: "required" },

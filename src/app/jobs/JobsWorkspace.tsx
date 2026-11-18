@@ -86,6 +86,7 @@ export function JobsWorkspace() {
   const [jobError, setJobError] = useState<JobWorkflowErrorState>();
   const [failedAction, setFailedAction] = useState<JobFailedAction>();
   const [selectedJobId, setSelectedJobId] = useState(() => typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("jobId") ?? "");
+  const jobQueryInitialized = useRef(false);
   const [jobListFilter, setJobListFilter] = useState<JobListFilter>("active");
   const [archivedJobIds, setArchivedJobIds] = useState<string[]>([]);
   const [trashedJobIds, setTrashedJobIds] = useState<string[]>([]);
@@ -144,6 +145,15 @@ export function JobsWorkspace() {
   const visibleJobs = jobListFilter === "active" ? activeJobs : archivedJobs;
   const selectedJob = jobs.find((job) => job.id === selectedJobId && !trashedJobIds.includes(job.id));
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const jobId = new URLSearchParams(window.location.search).get("jobId");
+      jobQueryInitialized.current = true;
+      if (jobId) setSelectedJobId(jobId);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    if (!jobQueryInitialized.current) return;
     const url = new URL(window.location.href);
     if (selectedJobId) url.searchParams.set("jobId", selectedJobId);
     else url.searchParams.delete("jobId");

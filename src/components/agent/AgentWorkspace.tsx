@@ -56,6 +56,7 @@ import { createRunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace"
 import { getActiveTailoringQuestionProjection } from "@/agent/runtime/AgentHostStore";
 import { buildProfileContentIntegrity } from "@/domain/profile/profileContentIntegrity";
 import { getLatestCoreClosureSelfCheck } from "@/services/diagnostics/p45CoreClosureSelfCheck";
+import { ProfileImpactSelector } from "./ProfileImpactSelector";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
@@ -1471,6 +1472,17 @@ export function AgentWorkspace() {
               if (result) updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split");
               return result;
             }} />}
+          {recoveryReady && (() => {
+            const outcome = session.taskState?.knownSlots.profileIntakeCommitOutcome as { status?: string; operationId?: string } | undefined;
+            const evidence = session.taskState?.knownSlots.profileImpactEvidence as { status?: string; personId?: string } | undefined;
+            const pending = session.taskState?.knownSlots.profileImpactPendingSelection;
+            const initialSelection = Array.isArray(pending) ? pending.filter((id): id is string => typeof id === "string") : [];
+            return outcome?.status === "COMMITTED_VERIFIED" && outcome.operationId && evidence?.status === "ready" && evidence.personId === session.personId
+              ? <ProfileImpactSelector key={`${outcome.operationId}:${initialSelection.join(",")}`} repository={agentImportRepository} operationId={outcome.operationId} initialSelection={initialSelection}
+                  pendingInteraction={session.taskState?.knownSlots.profileImpactPendingInteraction}
+                  onAnalyze={async action => { const result = await dispatchArtifactAction(action); if (result) updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split"); return result; }} />
+              : null;
+          })()}
           <AgentComposer
             disabled={paused || !recoveryReady}
             running={runPresentation.canStop}

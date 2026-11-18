@@ -32,6 +32,15 @@ function routeTurn(
 }
 
 describe("P4.2a.3b canonical task runtime", () => {
+  it("preserves a completed impact report and enables grounded follow-up questions", () => {
+    const reducer = new AgentTaskStateReducer();
+    const session = AgentRuntime.create("guided_profile_intake", "profile_complete");
+    const state = { ...reducer.create(session, "profile_intake"), stage: "profile_complete",
+      knownSlots: { profileImpactReport: { binding: { profileId: "profile" } } } };
+    for (const text of ["这段经历对岗位有什么帮助？", "这两个岗位哪个证据更充分？"]) {
+      expect(classifyTurnIntent({ text, taskState: state })).toMatchObject({ taskMutation: "preserve", toolScope: "domain" });
+    }
+  });
   it("treats continuation phrases as intent and derives the next stage from unresolved facts", () => {
     const state = tailoringState("preview_changes");
     const unresolved = {

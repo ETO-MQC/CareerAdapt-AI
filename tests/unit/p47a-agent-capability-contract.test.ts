@@ -36,9 +36,11 @@ const productionAuditRows = [
   { stableName: "career.context.retrieve", kind: "read", readWrite: "read", skillOwner: "career-story-mining / resume-review", visible: true },
   { stableName: "career.profile.get", kind: "read", readWrite: "read", skillOwner: "personal career Q&A", visible: true },
   { stableName: "career.resume.get", kind: "read", readWrite: "read", skillOwner: "selected resume detail", visible: true },
+  { stableName: "career.resume.propose_impact_review", kind: "read", readWrite: "read", skillOwner: "impact review decisions", visible: true },
   { stableName: "career.job.get", kind: "read", readWrite: "read", skillOwner: "selected job detail", visible: true },
   { stableName: "career.resume.list", kind: "read", readWrite: "read", skillOwner: "resume-review", visible: true },
   { stableName: "career.job.list", kind: "read", readWrite: "read", skillOwner: "target selection", visible: true },
+  { stableName: "career.job.propose_impact_selection", kind: "read", readWrite: "read", skillOwner: "explicit impact job selection", visible: true },
   { stableName: "career.workflow.profile_intake_turn", kind: "facade", readWrite: "write", skillOwner: "candidate-profile-interview", visible: true },
   { stableName: "career.workflow.profile_intake_finalize", kind: "facade", readWrite: "write", skillOwner: "candidate-profile-interview", visible: true },
   { stableName: "career.workflow.resume_import", kind: "facade", readWrite: "write", skillOwner: "resume import", visible: true },
@@ -72,7 +74,7 @@ describe("P4.7a Agent capability contract", () => {
   it("keeps the exact production profile to facades plus the small read surface", () => {
     const expected = productionAuditRows.map((row) => row.stableName).sort();
     expect([...HERMES_PRODUCTION_TOOL_PROFILE].sort()).toEqual(expected);
-    expect(HERMES_PRODUCTION_TOOL_PROFILE).toHaveLength(17);
+    expect(HERMES_PRODUCTION_TOOL_PROFILE).toHaveLength(19);
     expect(HERMES_PRODUCTION_TOOL_PROFILE).not.toEqual(expect.arrayContaining([
       "career.system.runtime_status",
       "career.system.current_task",

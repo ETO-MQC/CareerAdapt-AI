@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { demoCareerProfile } from "@/data/demoProfile";
-import { BranchContentItemSchema, CareerProfileSchema } from "@/domain/schemas";
+import { BranchContentItemSchema, CareerProfileSchema, JobDescriptionSchema } from "@/domain/schemas";
 import { adaptConversationMessageToIntakeDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { profileIntakeRequestFingerprint, WorkspaceRepository } from "@/services/storage/repositories";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { recoverProfileIntakeCommit } from "@/agent/runtime/profileIntakeCommitRecovery";
+import { analyzeExplicitlySelectedProfileJobs, isSelectedProfileImpactCurrent } from "@/services/agent/selectedProfileImpact";
+import { liveQuery } from "dexie";
+import { analyzeJobDescriptionV4 } from "@/domain/jobOptimization/v4/analyze";
 import {
   ProfileIntakeSemanticService,
   type ProfileIntakeSemanticResult
@@ -84,7 +87,53 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       expectedProfileVersion: profile.version, profileVersion: profile.version + 1 });
     expect(receipt!.committedItems.length).toBeGreaterThanOrEqual(3);
     expect(receipt!.committedItems.map((item) => item.content).join(" ")).toContain("简历制作平台");
-    expect((await recoverProfileIntakeCommit(repository, { ...request, personId })).status).toBe("COMMITTED_VERIFIED");
+    const verified = await recoverProfileIntakeCommit(repository, { ...request, personId });
+    expect(verified.status).toBe("COMMITTED_VERIFIED");
+    if (verified.status !== "COMMITTED_VERIFIED" || !verified.evidence) throw new Error("expected_verified_evidence");
+    expect(verified.evidence.graph).toMatchObject({ profileId: profile.id, profileRevision: committed.profileVersion });
+    expect(verified.evidence.changedNodes.length).toBeGreaterThan(0);
+    expect(verified.evidence.changedNodes.every(node => node.confirmationStatus === "confirmed"
+      && node.factIds.some(id => verified.receipt.committedFacts.some(fact => fact.id === id)))).toBe(true);
+    await repository.setActiveProfileId(profile.id);
+    const job = JobDescriptionSchema.parse({ id: "selected-shared-job", title: "示例岗位", company: null,
+      rawText: "待解析的岗位", source: "manual", createdAt: profile.createdAt, updatedAt: profile.updatedAt });
+    const otherJob = { ...job, id: "unselected-shared-job" };
+    await repository.saveJobDescription(job);
+    await repository.saveJobDescription(otherJob);
+    const analysis = await analyzeExplicitlySelectedProfileJobs({ repository, request: { ...request, personId },
+      selectedJobIds: [job.id], analyzedAt: "2026-11-16T12:00:00.000Z" });
+    expect(analysis).toMatchObject({ stale: false, binding: { personId, profileId: profile.id, operationId: request.operationId },
+      jobs: [{ jobId: job.id, status: "NOT_ANALYZED" }] });
+    expect(await isSelectedProfileImpactCurrent(repository, analysis)).toBe(true);
+    const liveValue = await new Promise<boolean>((resolve, reject) => {
+      const subscription = liveQuery(() => isSelectedProfileImpactCurrent(repository, analysis)).subscribe({
+        next: value => { subscription.unsubscribe(); resolve(value); }, error: reject
+      });
+    });
+    expect(liveValue).toBe(true);
+    const relevantText = "岗位职责\n参与简历制作平台项目。\n任职要求\n具备简历制作平台项目经验。";
+    const relevantJob = { ...job, id: "relevant-job", rawText: relevantText,
+      requirementGraph: analyzeJobDescriptionV4({ rawText: relevantText }).graph };
+    await repository.saveJobDescription(relevantJob);
+    const relevantAnalysis = await analyzeExplicitlySelectedProfileJobs({ repository, request: { ...request, personId },
+      selectedJobIds: [relevantJob.id], analyzedAt: "2026-11-16T12:00:00.000Z" });
+    expect(relevantAnalysis.jobs.flatMap(item => item.rows).some(row => row.evidence.length > 0), JSON.stringify(relevantAnalysis.jobs)).toBe(true);
+    const readJob = repository.getAvailableJobDescription.bind(repository);
+    let reads = 0;
+    const jobRead = vi.spyOn(repository, "getAvailableJobDescription").mockImplementation(async id => {
+      const found = await readJob(id);
+      if (++reads === 1 && found) await repository.saveJobDescription({ ...found, title: "已更新的岗位" });
+      return found;
+    });
+    const stale = await analyzeExplicitlySelectedProfileJobs({ repository, request: { ...request, personId },
+      selectedJobIds: [job.id], analyzedAt: "2026-11-16T12:00:00.000Z" });
+    expect(stale.stale).toBe(true);
+    jobRead.mockRestore();
+    expect(await isSelectedProfileImpactCurrent(repository, analysis)).toBe(false);
+    await expect(analyzeExplicitlySelectedProfileJobs({ repository, request: { ...request, personId },
+      selectedJobIds: [], analyzedAt: "2026-11-16T12:00:00.000Z" })).rejects.toThrow("impact_job_selection_invalid");
+    await expect(analyzeExplicitlySelectedProfileJobs({ repository, request: { ...request, personId: "other" },
+      selectedJobIds: [job.id], analyzedAt: "2026-11-16T12:00:00.000Z" })).rejects.toThrow("impact_active_person_changed");
     expect((await recoverProfileIntakeCommit(repository, { ...request, personId, operationId: "missing" })).status).toBe("UNKNOWN");
     const receiptQuery = vi.spyOn(repository, "getProfileIntakeOperationReceipt").mockRejectedValueOnce(new Error("receipt_query_unavailable"));
     expect((await recoverProfileIntakeCommit(repository, { ...request, personId })).status).toBe("UNKNOWN");

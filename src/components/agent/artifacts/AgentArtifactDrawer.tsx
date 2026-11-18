@@ -40,6 +40,7 @@ export function AgentArtifactDrawer({
     return Number.isFinite(stored) && stored >= 360 ? clampArtifactWidth(stored) : 520;
   });
   const [selectedArtifactId, setSelectedArtifactId] = useState(() => artifacts[0]?.id);
+  const lastImpactRef = useRef<string | undefined>(undefined);
   const drawerRef = useRef<HTMLElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const target = JobTargetSnapshotSchema.safeParse(taskState?.knownSlots.targetSnapshot);
@@ -51,6 +52,14 @@ export function AgentArtifactDrawer({
   const selectedArtifact = workspace && selectedRecord && ["job_fit_overview", "tailoring_diff"].includes(selectedRecord.kind)
     ? workspace
     : selectedRecord ?? workspace ?? artifacts[0];
+
+  useEffect(() => {
+    const impact = artifacts.find(artifact => artifact.kind === "resume_impact");
+    if (impact && impact.id !== lastImpactRef.current) {
+      lastImpactRef.current = impact.id;
+      setSelectedArtifactId(impact.id);
+    }
+  }, [artifacts]);
 
   useEffect(() => {
     window.localStorage.setItem(ARTIFACT_WIDTH_KEY, String(width));

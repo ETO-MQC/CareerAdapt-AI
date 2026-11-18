@@ -254,6 +254,7 @@ import {
 } from "@/domain/resumeImport/confirm";
 import { ProfileReconciliationEngine } from "@/domain/profileReconciliation/ProfileReconciliationEngine";
 import {
+  buildResumeEvidenceGraph,
   compileResumeComposition,
   ResumeCompositionCheckpointSchema,
   type ResumeCompositionCheckpoint,
@@ -557,6 +558,37 @@ function applyTailoringClaimsToBranch(
     contentItems,
     structuredContentItems: syncStructuredContentItems({ ...branch, structuredContentItems }, contentItems)
   };
+}
+
+/** Apply reviewed field changes to a candidate inside the caller's revision transaction. */
+function applyReviewedImpactDiffs(branch: ResumeBranch, profile: CareerProfile, diffs: ResumeTailoringDiff[], operationId: string, now: string) {
+  if (!diffs.length) return branch;
+  const targets = diffs.map(diff => `${diff.target.sectionId}:${diff.target.itemId}:${diff.target.fieldPath}`);
+  if (new Set(targets).size !== targets.length) throw new Error("tailoring_duplicate_target");
+  const validation = validateEachTailoringDiffLocally({ branch, diffs, explicitlyAcceptedDiffs: diffs,
+    allowUnconfirmed: false, submissionSafe: true });
+  if (validation.rejectedDiffs.length || validation.appliedDiffs.length !== diffs.length) {
+    throw new Error(`tailoring_review_invalid:${validation.rejectedDiffs[0]?.reasonCode ?? "incomplete"}`);
+  }
+  const claims = validation.appliedDiffs.map((diff, index): TailoringClaim => {
+    if (!diff.evidenceRefs.length) throw new Error("tailoring_evidence_required");
+    const evidence = resolveBranchFactRefs(profile, diff.evidenceRefs.map(toBranchFactRef));
+    const original = Array.isArray(diff.original) ? diff.original.join("\n") : String(diff.original);
+    const value = Array.isArray(diff.value) ? diff.value.join("\n") : String(diff.value);
+    const guard = runRuleFactGuard({ originalText: original, checkedText: value, usedEvidenceRefs: evidence, now });
+    if (guard.status !== "pass") throw new Error("tailoring_fact_guard_rejected");
+    return { id: `impact-tailoring-${operationId}-${index}`, section: diff.target.sectionId as TailoringClaim["section"],
+      targetContentItemId: diff.target.itemId, targetFieldPath: diff.target.fieldPath, currentText: original, proposedText: value,
+      reason: diff.reason, keywords: diff.targetKeywords, requirementIds: diff.requirementIds, supportLevel: diff.supportLevel,
+      decision: diff.supportLevel === "verified" ? "auto_applicable" : "requires_confirmation", evidenceRefs: evidence,
+      syncScope: "resume_only", confirmed: diff.supportLevel !== "verified", targetPatches: [validation.patches[index]] };
+  });
+  const patched = applyTailoringClaimsToBranch(branch, claims, now);
+  const next = ResumeBranchSchema.parse({ ...branch, ...patched });
+  for (const diff of diffs) {
+    if (!sameTailoringValue(readTailoringValue(next, diff), diff.value)) throw new Error("tailoring_apply_verification_failed");
+  }
+  return next;
 }
 
 export function resumeBranchContentHash(value: ResumeBranch | { resumeBasics?: unknown; contentItems: unknown; structuredContentItems?: unknown }) {
@@ -1377,6 +1409,20 @@ export class WorkspaceRepository {
     });
     await this.db.appMeta.put({ key: ACTIVE_CAREER_CONTEXT_META_KEY, value: context, updatedAt: context.selectedAt });
     return context;
+  }
+
+  /** Read-only view for liveQuery; legacy identity migration must run outside the query. */
+  async getActiveCareerSnapshotReadOnly() {
+    const stored = await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY);
+    const context = ActiveCareerContextSchema.safeParse(stored?.value);
+    if (!context.success) return undefined;
+    const [person, rawProfile] = await Promise.all([
+      this.getCareerPersonWithoutMigration(context.data.personId), this.db.profiles.get(context.data.profileId)
+    ]);
+    if (!person || person.trashedAt || person.archivedAt || !rawProfile) return undefined;
+    const profile = migrateCareerProfileToV2(CareerProfileSchema.parse(rawProfile));
+    if (profile.personId !== person.id || profile.trashedAt || profile.archivedAt) return undefined;
+    return { context: context.data, profile };
   }
 
   async setActiveCareerContext(input: Pick<ActiveCareerContext, "personId" | "profileId">) {
@@ -6707,6 +6753,12 @@ export class WorkspaceRepository {
     expectedRevision: number;
     operationId: string;
     section: string;
+    /** Explicitly reviewed changes applied together with the selected Profile item. */
+    reviewedDiffs?: ResumeTailoringDiff[];
+    includeReference?: boolean;
+    referenceEditedText?: string;
+    impactGuard?: { personId: string; profileId: string; profileRevision: number; jobId: string;
+      jobFingerprint: string; revisionId: string; evidenceFingerprint: string };
     reference:
       | { type: "experience"; experienceId: string; factId: string }
       | { type: "skill"; skillId: string; factId: string }
@@ -6724,7 +6776,22 @@ export class WorkspaceRepository {
       operationId: input.operationId,
       type: "manual_edit",
       source: "manual_edit",
-      mutate: async ({ branch, profile, now }) => {
+      mutate: async ({ branch, profile, job, now }) => {
+        if (input.impactGuard) {
+          const guard = input.impactGuard;
+          const active = ActiveCareerContextSchema.safeParse((await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY))?.value);
+          if (!active.success || active.data.personId !== guard.personId || active.data.profileId !== guard.profileId
+            || profile.personId !== guard.personId || profile.id !== guard.profileId || profile.version !== guard.profileRevision
+            || branch.branchPurpose !== "job_specific" || branch.jobId !== guard.jobId || branch.currentRevisionId !== guard.revisionId
+            || !job || sha256Utf8(stableStringify(job)) !== guard.jobFingerprint
+            || sha256Utf8(stableStringify(buildResumeEvidenceGraph({ profile }))) !== guard.evidenceFingerprint) throw new RevisionConflictError();
+          const presentationBaseline = await this.getResumePresentationConfig(branch.id);
+          await this.db.appMeta.put({ key: resumePresentationConfigKey(branch.id), value: presentationBaseline, updatedAt: now });
+        }
+        if (input.includeReference === false) {
+          if (!input.impactGuard || !input.reviewedDiffs?.length) throw new Error("tailoring_no_selected_changes");
+          return applyReviewedImpactDiffs(branch, profile, input.reviewedDiffs, input.operationId, now);
+        }
         if (branch.contentItems.some((item) => item.id === newItemId)) return branch;
         let text = "";
         let itemType: "experience" | "skill" | "certificate" | "custom" = "custom";
@@ -6735,6 +6802,9 @@ export class WorkspaceRepository {
         if (reference.type === "canonical") {
           canonicalEntry = profile.structuredFacts?.find((entry) => entry.data.id === reference.itemId && entry.data.sectionType === reference.sectionType);
           if (!canonicalEntry || input.section !== reference.sectionType) throw new Error("profile_canonical_item_unavailable");
+          if (input.impactGuard && !buildResumeEvidenceGraph({ profile }).nodes.some(node => node.confirmationStatus === "confirmed"
+            && node.sourceAssetIds.includes(reference.itemId) && canonicalEntry!.factIds.length > 0
+            && canonicalEntry!.factIds.every(id => node.factIds.includes(id)))) throw new Error("profile_canonical_fact_unavailable");
           factRefs = resolveStructuredProfileFactRefs(profile, canonicalEntry.factIds);
           const isConfirmedNarrative = canonicalEntry.data.sectionType === "summary" && canonicalEntry.factIds.length === 0;
           if (!isConfirmedNarrative && (!factRefs.length || factRefs.length !== canonicalEntry.factIds.length)) throw new Error("profile_canonical_fact_unavailable");
@@ -6855,12 +6925,21 @@ export class WorkspaceRepository {
           sourceBlockIds: canonicalEntry!.sourceBlockIds, sourceRanges: canonicalEntry!.sourceRanges,
           sourceExcerpt: canonicalEntry!.sourceExcerpt, mappingTrace: canonicalEntry!.mappingTrace
         }) : item) : syncedStructuredItems;
-        return ResumeBranchSchema.parse({
+        const candidate = ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: profile.version,
           contentItems: nextContentItems,
           structuredContentItems: nextStructuredItems
         });
+        const edit = input.referenceEditedText;
+        const originalDescription = canonicalEntry?.data && "description" in canonicalEntry.data ? canonicalEntry.data.description : undefined;
+        if (edit !== undefined && (!input.impactGuard || !originalDescription || !edit.trim())) throw new Error("profile_item_edit_invalid");
+        const itemDiff: ResumeTailoringDiff[] = edit !== undefined && edit !== originalDescription ? [{
+          target: { sectionId: input.section, itemId: newItemId, fieldPath: "description" }, operation: "replace",
+          original: originalDescription!, value: edit.trim(), reason: "用户审核后调整经历描述", requirementIds: [], targetKeywords: [],
+          supportLevel: "verified", evidenceRefs: resolveBranchFactRefs(profile, factRefs)
+        }] : [];
+        return applyReviewedImpactDiffs(candidate, profile, [...itemDiff, ...(input.reviewedDiffs ?? [])], input.operationId, now);
       }
     });
     const diagnosed = await this.withProfileSyncDiagnostics(result, {

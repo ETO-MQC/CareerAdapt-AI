@@ -22,6 +22,7 @@ import {
 import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import { ResumeCompositionInformationNeedSchema } from "@/domain/resumeComposition/contracts";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
+import { ProfileImpactProposalSchema } from "@/agent/contracts/profileImpactProposal";
 import { normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
 import { deriveWorkflowUserInputCheckpoint } from "./workflowUserInputCheckpoint";
 
@@ -485,6 +486,44 @@ export class AgentTaskStateReducer {
       state.lastObservation = { toolName: event.toolName, value: event.observation };
       state.artifacts = unique([...state.artifacts, ...(event.artifactIds ?? [])]);
       mergeObservationSlots(state, event.toolName, event.observation);
+      if (event.toolName === "propose_profile_impact_selection") {
+        const observation = objectValue(event.observation);
+        const ids = observation.jobIds;
+        if (Array.isArray(ids) && ids.every(id => typeof id === "string")) {
+          const clarify = observation.clarificationRequired === true;
+          state.knownSlots.profileImpactPendingSelection = clarify ? [] : ids;
+          state.knownSlots.profileImpactPendingInteraction = {
+            kind: clarify ? "clarify_jobs" : "confirm_jobs", candidates: observation.candidates,
+            prompt: observation.prompt, jobIds: ids
+          };
+          state.completionStatus = "waiting_for_user";
+        }
+      }
+      if (event.toolName === "propose_impact_review") {
+        const observation = objectValue(event.observation);
+        const proposal = ProfileImpactProposalSchema.safeParse(state.knownSlots.profileImpactProposal);
+        if (proposal.success && proposal.data.status === "pending" && observation.proposalId === proposal.data.id && Array.isArray(observation.decisions)) {
+          const updated = { ...proposal.data, reviews: [...proposal.data.reviews] };
+          for (const raw of observation.decisions) {
+            const choice = objectValue(raw);
+            if (choice.decision !== "accept" && choice.decision !== "edit" && choice.decision !== "reject") continue;
+            if (choice.diffId === "profile_item") {
+              if (choice.decision === "edit" && typeof choice.editedValue !== "string") continue;
+              updated.addDecision = choice.decision;
+              updated.editedItemText = choice.decision === "edit" ? choice.editedValue as string : undefined;
+              continue;
+            }
+            const diff = updated.diffs.find(candidate => tailoringDiffId(candidate) === choice.diffId);
+            if (!diff || (choice.decision === "edit" && typeof choice.editedValue !== "string")) continue;
+            const edited = choice.decision === "edit" && typeof choice.editedValue === "string"
+              ? Array.isArray(diff.value) ? choice.editedValue.split("\n").map(value => value.trim()).filter(Boolean) : choice.editedValue : undefined;
+            updated.reviews = [...updated.reviews.filter(review => review.diffId !== choice.diffId),
+              { diffId: tailoringDiffId(diff), decision: choice.decision, ...(edited !== undefined ? { editedValue: edited } : {}) }];
+          }
+          state.knownSlots.profileImpactProposal = ProfileImpactProposalSchema.parse(updated);
+          state.completionStatus = "waiting_for_user";
+        }
+      }
       if (event.toolName === "commit_job") {
         if (state.rootGoal === "ingest_job") {
           state.activeGoal = "ingest_job";

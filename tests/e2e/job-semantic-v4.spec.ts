@@ -37,3 +37,13 @@ test("AI 训练师 JD 编译为 3 条职责、1 个三项方向组并提示来�
   await expect(dialog.getByRole("status")).toContainText("来源");
   await expect(dialog).not.toContainText("33 条");
 });
+
+test("岗位链接刷新后仍打开所选岗位", async ({ page }) => {
+  await skipSetupWizard(page);
+  await page.getByRole("button", { name: /数据分析实习生.*示例科技公司/ }).click();
+  await expect(page).toHaveURL(/jobId=/);
+  const selectedUrl = page.url();
+  await page.goto(selectedUrl);
+  await expect(page.getByRole("heading", { name: "数据分析实习生", exact: true })).toBeVisible();
+  await expect(page.getByTestId("profile-source-mode")).toBeVisible();
+});

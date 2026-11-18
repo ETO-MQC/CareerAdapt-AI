@@ -110,3 +110,4 @@ scripts/p36-parser-benchmark.ts
 /playwright/.cache/
 *.trace
 *.zip
+.next-h4b2-build-1794888400/

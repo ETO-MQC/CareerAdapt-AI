@@ -1,15 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { buildGeneralBranchFromProfile, buildJobBranchFromProfile } from "@/domain/branch/profileBranch";
-import type { CareerProfile, ResumeTailoringPlan } from "@/domain/schemas";
+import type { CareerProfile, ResumeTailoringDiff, ResumeTailoringPlan } from "@/domain/schemas";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
-import { presentationSnapshotFromConfig } from "@/services/export/snapshot";
+import { presentationSnapshotFromConfig, stableStringify } from "@/services/export/snapshot";
 import { analyzeJobFit } from "@/services/jobs/tailoringService";
 import { JobDescriptionSchema } from "@/domain/schemas";
 import { tailoringValueHash } from "@/domain/jobOptimization";
 import { tailoringDiffId } from "@/services/jobs/tailoringCommands";
 import { migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
+import { buildResumeEvidenceGraph } from "@/domain/resumeComposition/ResumeEvidenceGraph";
+import { sha256Utf8 } from "@/domain/jobAssets/sha256";
 
 const NOW = "2026-07-20T08:00:00.000Z";
 let db: CareerAdaptDb | undefined;
@@ -21,6 +23,77 @@ afterEach(async () => {
 });
 
 describe("Tailoring Engine v2 repository application", () => {
+  it("adds a confirmed profile item to the same job branch only against current dependencies", async () => {
+    db = new CareerAdaptDb(`ImpactRevision-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const sourceProfile = fixtureProfile();
+    const oldFact = sourceProfile.experiences[0].facts[0];
+    const initial = await repository.saveProfile({ ...sourceProfile, structuredFacts: [{
+      data: { id: "smartfocus", sectionType: "project", title: "示例任务系统", current: false,
+        highlights: [oldFact.statement], tools: [], outcomes: [], customFields: [] },
+      factIds: [oldFact.id], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }] });
+    await repository.setActiveProfileId(initial.id);
+    const general = buildGeneralBranchFromProfile({ profile: initial, operationId: "impact-general", name: "通用", includeProfileFacts: true, includeProfileBasics: true, now: NOW });
+    const makeBranch = (jobId: string) => buildJobBranchFromProfile({ profile: initial, jobId, jobTitle: jobId,
+      jobVersion: NOW, operationId: `create-${jobId}`, name: jobId, selectedCanonicalItemIds: ["smartfocus"],
+      requirementMatchIds: [], sourceMatchSetHash: "impact-hash", now: NOW });
+    const a = makeBranch("impact-job-a");
+    const b = makeBranch("impact-job-b");
+    const job = JobDescriptionSchema.parse({ id: "impact-job-a", title: "数据分析", company: null,
+      rawText: "需要数据分析。", source: "manual", requirements: [], createdAt: NOW, updatedAt: NOW });
+    await repository.saveJobDescription(job);
+    await repository.saveJobDescription({ ...job, id: "impact-job-b" });
+    for (const entry of [general, a, b]) { await repository.saveResumeBranch(entry.branch); await db!.resumeRevisions.put(entry.firstRevision); }
+    const fact = { id: "impact-intern-fact", statement: "整理用户反馈并分析数据。", category: "experience" as const,
+      confirmedByUser: true, riskLevel: "low" as const, createdAt: NOW, updatedAt: NOW,
+      provenance: [{ sourceType: "user_input" as const, sourceId: "impact-source", sourceText: "整理用户反馈并分析数据。",
+        confidence: 1, confirmedByUser: true, riskLevel: "low" as const, createdAt: NOW }] };
+    const profile = await repository.saveProfile({ ...initial, version: initial.version + 1,
+      experiences: [...initial.experiences, { id: "impact-intern", type: "internship", organization: "示例公司", role: "实习生",
+        facts: [fact], resumeDrafts: [], tags: [], evidenceIds: [], createdAt: NOW, updatedAt: NOW }],
+      structuredFacts: [...(initial.structuredFacts ?? []), { data: { id: "impact-item", sectionType: "internship", organization: "示例公司",
+        role: "实习生", current: false, description: fact.statement, highlights: [], customFields: [] },
+        factIds: [fact.id], sourceBlockIds: ["impact-source"], sourceRanges: [], mappingTrace: [] }] });
+    const presentation = presentationSnapshotFromConfig(await repository.getResumePresentationConfig(a.branch.id));
+    const input = { branchId: a.branch.id, expectedRevision: a.branch.revision, operationId: "impact-add-confirmed",
+      section: "internship", reference: { type: "canonical" as const, itemId: "impact-item", sectionType: "internship" },
+      impactGuard: { personId: profile.personId!, profileId: profile.id, profileRevision: profile.version,
+        jobId: job.id, jobFingerprint: sha256Utf8(stableStringify(job)), revisionId: a.branch.currentRevisionId!,
+        evidenceFingerprint: sha256Utf8(stableStringify(buildResumeEvidenceGraph({ profile }))) } };
+    await expect(repository.addResumeContentItemFromProfileReference({ ...input, operationId: "impact-stale",
+      impactGuard: { ...input.impactGuard, profileRevision: profile.version - 1 } })).rejects.toThrow("revision_conflict");
+    await expect(repository.addResumeContentItemFromProfileReference({ ...input, operationId: "impact-job-stale",
+      impactGuard: { ...input.impactGuard, jobFingerprint: "stale" } })).rejects.toThrow("revision_conflict");
+    await expect(repository.addResumeContentItemFromProfileReference({ ...input, operationId: "impact-revision-stale",
+      impactGuard: { ...input.impactGuard, revisionId: "stale" } })).rejects.toThrow("revision_conflict");
+    const oldItem = a.branch.structuredContentItems!.find(item => item.data.sectionType === "project")!;
+    if (oldItem.data.sectionType !== "project") throw new Error("project_expected");
+    const diff: ResumeTailoringDiff = { target: { sectionId: "project", itemId: oldItem.id, fieldPath: "highlights" },
+      operation: "replace", original: oldItem.data.highlights, value: ["搭建并调优 RAG 系统。"], reason: "突出已有项目经验",
+      requirementIds: [], targetKeywords: [], supportLevel: "verified", evidenceRefs: [{ type: "experience_fact", experienceId: "smartfocus",
+        factId: oldFact.id, factText: oldFact.statement, factQuote: oldFact.statement }] };
+    await expect(repository.addResumeContentItemFromProfileReference({ ...input, operationId: "impact-invalid-diff",
+      reviewedDiffs: [{ ...diff, value: ["提升 999% 的 RAG 效率。"] }] })).rejects.toThrow();
+    expect(await repository.getResumeBranch(a.branch.id)).toEqual(a.branch);
+    expect(await repository.listResumeRevisions(a.branch.id)).toHaveLength(1);
+    const result = await repository.addResumeContentItemFromProfileReference({ ...input, reviewedDiffs: [diff], referenceEditedText: "整理用户反馈，分析数据。" });
+    expect(result.branch.id).toBe(a.branch.id);
+    expect(result.branch.revision).toBe(a.branch.revision + 1);
+    expect(result.revision?.previousRevisionId).toBe(a.branch.currentRevisionId);
+    expect(await repository.getResumeRevision(a.firstRevision.id)).toEqual(a.firstRevision);
+    expect(await repository.getResumeBranch(general.branch.id)).toEqual(general.branch);
+    expect(await repository.getResumeBranch(b.branch.id)).toEqual(b.branch);
+    expect(await repository.getProfile(profile.id)).toEqual(profile);
+    expect(result.branch.structuredContentItems?.find(item => item.data.id === "impact-item")?.factRefs).toEqual([
+      { type: "experience_fact", experienceId: "impact-intern", factId: fact.id }
+    ]);
+    expect(presentationSnapshotFromConfig(await repository.getResumePresentationConfig(a.branch.id))).toEqual(presentation);
+    const rendered = mapBranchToResumeRenderModel({ branch: result.branch, profile, job,
+      presentationConfig: await repository.getResumePresentationConfig(a.branch.id) });
+    expect(JSON.stringify(rendered)).toContain("整理用户反馈，分析数据。");
+    expect(JSON.stringify(rendered)).toContain("搭建并调优 RAG 系统。");
+    await expect(repository.addResumeContentItemFromProfileReference({ ...input, operationId: "impact-late" })).rejects.toThrow("revision_conflict");
+  });
   it("patches only the canonical highlights field, creates a revision, and leaves the general resume unchanged", async () => {
     const profile = fixtureProfile();
     const general = buildGeneralBranchFromProfile({ profile, operationId: "general-create", name: "通用简历", includeProfileFacts: true, includeProfileBasics: true, now: NOW });

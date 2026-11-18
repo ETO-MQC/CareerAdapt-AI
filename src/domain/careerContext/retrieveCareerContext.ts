@@ -98,6 +98,15 @@ export const CareerContextRetrieveResultSchema = z.object({
     jobId: z.string().optional(), jobVersion: z.string().optional() }).strict(),
   pendingFacts: z.array(z.object({ factId: z.string(), reason: z.enum(["unconfirmed", "high_risk"]) }).strict()),
   materialSources: z.array(z.object({ sourceId: z.string(), factIds: z.array(z.string()) }).strict()),
+  profileImpact: z.object({ sessionId: z.string(), status: z.enum(["current", "stale"]),
+    binding: z.object({ personId: z.string(), profileId: z.string(), profileRevision: z.number(), evidenceFingerprint: z.string() }).strict(),
+    recommendedActions: z.array(z.string()),
+    review: z.object({ proposalId: z.string(), suggestions: z.array(z.object({ index: z.number(), location: z.string(),
+      original: z.string(), proposed: z.string(), decision: z.string() }).strict()) }).strict().optional(),
+    jobs: z.array(z.object({ jobId: z.string(), jobRevision: z.string(), jobFingerprint: z.string(), title: z.string(), status: z.string(),
+      requirements: z.array(z.object({ requirementId: z.string(), requirement: z.string(), matchLevel: z.string(),
+        flags: z.array(z.string()), evidence: z.array(z.object({ text: z.string(), sources: z.array(z.string()) }).strict()),
+        missingAspects: z.array(z.string()) }).strict()) }).strict()) }).strict().optional(),
   careerContextResultSummary: CareerContextResultSummarySchema
 }).strict();
 

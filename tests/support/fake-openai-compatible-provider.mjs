@@ -145,6 +145,79 @@ function materialArtifact(value, depth = 0) {
 
 function chooseResponse({ mode, messages, tools }) {
   const lastToolResult = [...messages].reverse().find((message) => message && message.role === "tool");
+  if (mode === "integration" && latestUserText(messages) === "分析产品运营和供应链这两个岗位。") {
+    const turn = messages.slice(messages.findLastIndex(message => message?.role === "user") + 1);
+    const results = turn.filter(message => message?.role === "tool");
+    const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
+    if (results.some(message => message.name?.includes("propose_impact_selection"))) return { content: "请核对这两个岗位。" };
+    const jobs = results.map(message => findCore02Payload(message.content, value => Array.isArray(value.jobs))).find(Boolean)?.jobs;
+    if (!jobs) return call("career.job.list", {});
+    const ids = jobs.filter(job => ["产品运营验收岗", "供应链验收岗"].includes(job.title)).map(job => job.id);
+    return ids.length === 2 ? call("career.job.propose_impact_selection", { jobIds: ids }) : { content: "没有找到两个岗位，请重新选择。" };
+  }
+  if (mode === "integration" && latestUserText(messages) === "第一条采用，第三条忽略。") {
+    const turn = messages.slice(messages.findLastIndex(message => message?.role === "user") + 1);
+    const results = turn.filter(message => message?.role === "tool");
+    const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
+    if (results.some(message => message.name?.includes("propose_impact_review"))) return { content: "已暂存选择，请继续核对并最终确认。" };
+    const impact = results.map(message => findCore02Payload(message.content, value => value.profileImpact)).find(Boolean)?.profileImpact;
+    if (!impact) return call("career.context.retrieve", { profileId: "current", query: "当前岗位修改建议", intent: "resume_tailoring" });
+    if (!impact.review?.proposalId || impact.review.suggestions.length < 3) return { content: "当前建议不足三项，请重新核对。" };
+    return call("career.resume.propose_impact_review", { proposalId: impact.review.proposalId,
+      decisions: [{ index: 1, decision: "accept" }, { index: 3, decision: "reject" }] });
+  }
+  if (mode === "integration" && ["继续看看刚才那个数据分析岗位。", "选择验收公司数据分析岗位。", "继续看看刚才那个产品运营岗位。", "选择验收公司产品运营岗位。"].includes(latestUserText(messages))) {
+    const turn = messages.slice(messages.findLastIndex(message => message?.role === "user") + 1);
+    const results = turn.filter(message => message?.role === "tool");
+    const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
+    const nameIncludes = value => results.some(message => message.name?.includes(value));
+    if (latestUserText(messages).startsWith("继续看看")) {
+      return results.length ? { content: "找到多个数据分析岗位，请选择公司。" } : call("career.job.list", {});
+    }
+    if (!nameIncludes("profile_get")) return call("career.profile.get", { profileId: "current" });
+    if (!nameIncludes("job_list")) return call("career.job.list", {});
+    if (!nameIncludes("resume_list")) return call("career.resume.list", {});
+    const jobs = results.map(message => findCore02Payload(message.content, value => Array.isArray(value.jobs))).find(Boolean)?.jobs ?? [];
+    const resumes = results.map(message => findCore02Payload(message.content, value => Array.isArray(value.resumes))).find(Boolean)?.resumes ?? [];
+    const job = jobs.find(item => item.title === (latestUserText(messages).includes("产品运营") ? "产品运营验收岗" : "数据分析岗位") && item.company === "验收公司");
+    const resume = resumes.find(item => item.jobId === job?.id);
+    if (!resume) return { content: "未找到已选岗位的简历。" };
+    if (!nameIncludes("job_get")) return call("career.job.get", { jobId: job.id });
+    if (!nameIncludes("resume_get")) return call("career.resume.get", { resumeId: resume.id });
+    const profile = results.map(message => findCore02Payload(message.content, value => value.profile?.id)).find(Boolean)?.profile;
+    const detail = results.map(message => findCore02Payload(message.content, value => value.resume?.id === resume.id)).find(Boolean)?.resume;
+    const jobDetail = results.map(message => findCore02Payload(message.content, value => value.job?.id === job.id)).find(Boolean)?.job;
+    if (!profile?.items?.some(item => ["示例数据分析", "示例科技"].includes(item.title)) || !jobDetail || detail?.currentRevisionId !== resume.currentRevisionId
+      || detail?.revision !== resume.revision) return { content: "正式资料、岗位或当前版本读取不完整。" };
+    return { content: `已读取验收公司岗位和当前岗位简历版本 ${resume.revision}。` };
+  }
+  if (mode === "integration" && latestUserText(messages) === "这段经历对岗位有什么帮助？") {
+    const turn = messages.slice(messages.findLastIndex(message => message?.role === "user") + 1);
+    const results = turn.filter(message => message?.role === "tool");
+    if (!results.length) return { toolCall: { name: findToolName(tools, "career.context.retrieve"),
+      arguments: JSON.stringify({ profileId: "current", query: "这段经历对岗位有什么帮助？", intent: "job_fit_explanation" }) } };
+    const result = results.map(message => findCore02Payload(message.content, value => value.profileImpact)).find(Boolean);
+    const impact = result?.profileImpact;
+    if (impact?.status === "stale") return { content: "资料或岗位已变化，请重新分析。" };
+    const job = impact?.jobs?.[0];
+    const row = job?.requirements?.find(item => item.evidence?.length);
+    return row ? { content: `岗位要求：${row.requirement}；证据：${row.evidence[0].text}；来源：${row.evidence[0].sources[0] ?? "已确认资料"}。` }
+      : { content: "当前没有足够的岗位影响证据。" };
+  }
+  if (mode === "integration" && ["分析数据分析岗位。", "就看第二个。"].includes(latestUserText(messages))) {
+    const turn = messages.slice(messages.findLastIndex(message => message?.role === "user") + 1);
+    const results = turn.filter(message => message?.role === "tool");
+    const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
+    if (results.some(message => message.name?.includes("propose_impact_selection"))) return { content: "请核对岗位选择。" };
+    const listed = results.map(message => findCore02Payload(message.content, value => Array.isArray(value.jobs))).find(Boolean);
+    if (!listed) return call("career.job.list", {});
+    if (latestUserText(messages) === "分析数据分析岗位。") {
+      const ids = listed.jobs.filter(job => job.title === "数据分析岗位").map(job => job.id);
+      return call("career.job.propose_impact_selection", { jobIds: ids, clarificationRequired: true, question: "你想分析哪一个岗位？" });
+    }
+    const second = listed.pendingInteraction?.candidates?.[1];
+    return second ? call("career.job.propose_impact_selection", { jobIds: [second.id] }) : { content: "候选已变化，请重新选择。" };
+  }
   if (mode === "integration" && tools.length === 0 && /extract every supported career asset|final provisional interview draft/u.test(messageText(messages.find((message) => message?.role === "system")?.content))) {
     return chooseCareerAgentEvalResponse({ messages, tools, lastToolResult });
   }

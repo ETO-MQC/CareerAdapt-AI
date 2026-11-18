@@ -40,6 +40,12 @@ export const AgentUiActionSchema = z.discriminatedUnion("type", [
 ]);
 
 export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("profile_impact_analyze"), operationId: z.string().min(1),
+    jobIds: z.array(z.string().min(1)).min(1).max(30) }).strict(),
+  z.object({ type: z.literal("profile_impact_prepare"), jobId: z.string().min(1), branchId: z.string().min(1), itemId: z.string().min(1) }).strict(),
+  z.object({ type: z.literal("profile_impact_decide"), proposalId: z.string().min(1),
+    decision: z.enum(["confirm", "ignore", "generate", "accept", "edit", "reject", "include_item", "edit_item", "exclude_item"]), diffId: z.string().min(1).optional(),
+    editedValue: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]).optional() }).strict(),
   z.object({ type: z.literal("profile_intake_recheck"), operationId: z.string().min(1) }).strict(),
   z.object({ type: z.literal("profile_intake_recover"), operationId: z.string().min(1),
     mode: z.enum(["query", "replay"]) }).strict(),

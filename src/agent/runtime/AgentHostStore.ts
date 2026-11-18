@@ -6,6 +6,9 @@ import { sha256Utf8 } from "@/domain/jobAssets/sha256";
 import { preferenceReviewPrompt } from "@/agent/workflows/CareerWorkflowFacade";
 import { CareerPreferenceSchema } from "@/domain/schemas/profile";
 import { recoverProfileIntakeCommit } from "./profileIntakeCommitRecovery";
+import { stableStringify } from "@/services/export/snapshot";
+import { analyzeExplicitlySelectedProfileJobs, isSelectedProfileImpactCurrent, type SelectedProfileImpact } from "@/services/agent/selectedProfileImpact";
+import { ProfileImpactProposalSchema } from "@/agent/contracts/profileImpactProposal";
 
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import {
@@ -135,7 +138,7 @@ import {
   type RuntimeUserEvent
 } from "./RuntimeUserEvent";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
-import type { TailoringSession } from "@/services/jobs/tailoringCommands";
+import { TailoringSessionSchema, type TailoringSession } from "@/services/jobs/tailoringCommands";
 import { consumeTailoringQuestionAnswer, isTailoringQuestionPlanComplete } from "@/services/jobs/tailoringService";
 import { isTailoringQuestionPaused, normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
 import { advanceTailoringWorkflow, type TailoringWorkflowBoundary } from "@/agent/workflows/tailoringWorkflowDriver";
@@ -3228,7 +3231,12 @@ export class AgentHostStore {
       const domainFailureWaiting = isCareerDomainPreconditionCode(event.error?.code)
         || objectValue(event.data).domainFailure === true
         && objectValue(event.data).waitingForUser === true;
-      const completionDecision = next.taskState ? new AgentGoalCompletionGuard().evaluate(next.taskState) : undefined;
+      // A read-only answer about an already computed impact report is a
+      // conversational side turn, not a claim that intake has completed.
+      const impactSideTurn = Boolean(next.taskState?.knownSlots.profileImpactReport)
+        && isIsolatedRuntimeTurn(next, event.turnId);
+      const completionDecision = next.taskState && !impactSideTurn
+        ? new AgentGoalCompletionGuard().evaluate(next.taskState) : undefined;
       const completionNeedsRecovery = event.type === "turn_completed"
         && Boolean(completionDecision && !completionDecision.canFinish);
       if (completionNeedsRecovery && next.taskState?.completionStatus === "active") {
@@ -3450,6 +3458,25 @@ export class AgentHostStore {
       const active = this.snapshot.activeSession?.id === session.id
         ? this.snapshot.activeSession
         : session;
+      if (input.action.type === "profile_impact_analyze") {
+        const action = input.action;
+        const key = `profile-impact:${active.id}:${action.operationId}`;
+        const running = this.artifactActionExecutions.get(key);
+        if (running) return running;
+        const execution = this.analyzeProfileImpact(active, action)
+          .finally(() => this.artifactActionExecutions.delete(key));
+        this.artifactActionExecutions.set(key, execution);
+        return execution;
+      }
+      if (input.action.type === "profile_impact_prepare" || input.action.type === "profile_impact_decide") {
+        const action = input.action;
+        const key = `profile-impact-proposal:${active.id}`;
+        const running = this.artifactActionExecutions.get(key);
+        if (running) return running;
+        const execution = this.resolveProfileImpactProposal(active, action).finally(() => this.artifactActionExecutions.delete(key));
+        this.artifactActionExecutions.set(key, execution);
+        return execution;
+      }
       if (input.action.type === "profile_intake_recheck") {
         const action = input.action;
         const key = `profile-intake-recheck:${active.id}:${action.operationId}`;
@@ -3732,6 +3759,153 @@ export class AgentHostStore {
     });
   }
 
+  private async analyzeProfileImpact(session: AgentSession, action: Extract<AgentArtifactAction, { type: "profile_impact_analyze" }>) {
+    const latest = await this.dependencies.persistence.get(session.id);
+    const task = latest?.taskState;
+    const outcome = objectValue(task?.knownSlots.profileIntakeCommitOutcome);
+    const frozen = FrozenProfileIntakeRequestSchema.safeParse(objectValue(outcome.request).frozen);
+    if (!latest || !task || outcome.status !== "COMMITTED_VERIFIED" || outcome.operationId !== action.operationId
+      || !frozen.success || latest.personId !== frozen.data.personId || frozen.data.confirmation.sessionId !== latest.id) {
+      throw new Error("无法确认本次资料保存记录，请重新核对资料。");
+    }
+    const confirmation = latest.messages.find(message => message.id === frozen.data.confirmation.messageId && message.role === "user");
+    if (!confirmation || confirmation.turnId !== frozen.data.confirmation.turnId || confirmation.content !== frozen.data.confirmation.text) {
+      throw new Error("无法核实本次资料确认，请重新核对资料。");
+    }
+    const request = { operationId: action.operationId, personId: frozen.data.personId, targetProfileId: frozen.data.targetProfileId,
+      importId: frozen.data.draft.importId, expectedDraftRevision: frozen.data.draft.revision,
+      expectedReconciliationRevision: frozen.data.reconciliation.revision, expectedProfileVersion: frozen.data.expectedProfileVersion,
+      frozen: frozen.data };
+    const report = await analyzeExplicitlySelectedProfileJobs({ repository: this.getCareerRepository(), request,
+      selectedJobIds: action.jobIds, analyzedAt: new Date().toISOString() });
+    if (report.stale) throw new Error("资料或岗位在分析时发生变化，请重新选择岗位并分析。");
+    const now = new Date().toISOString();
+    const artifactId = `resume-impact-${action.operationId}`;
+    const artifact: AgentArtifactRef = { id: artifactId, kind: "resume_impact", title: "经历与岗位影响",
+      entityType: "profile_intake_draft", entityId: frozen.data.draft.importId, status: "active", createdAt: now, updatedAt: now };
+    const nextTask = { ...task, knownSlots: { ...task.knownSlots, profileImpactReport: report, profileImpactPendingSelection: undefined,
+      profileImpactPendingInteraction: undefined }, updatedAt: now };
+    let next = projectTaskStateIntoSession({ ...latest, artifactRefs: [...latest.artifactRefs.filter(item => item.id !== artifactId), artifact], updatedAt: now }, nextTask);
+    next = appendAgentMessage(next, "user", `分析所选的 ${report.jobs.length} 个岗位`, { status: "complete" });
+    const unavailable = report.jobs.filter(job => job.status === "NOT_ANALYZED").length;
+    next = appendAgentMessage(next, "assistant", `已分析所选岗位的当前证据${unavailable ? `；其中 ${unavailable} 个岗位缺少有效需求分析` : ""}。报告列出相关证据和仍待核实的要求；没有历史基线时不推断匹配度变化。`, { status: "complete" });
+    const saved = await this.dependencies.persistence.saveIfRevision(next, latest.sessionRevision);
+    if (this.snapshot.activeSessionId === saved.id) this.patchSession(saved, { artifacts: saved.artifactRefs });
+    return saved;
+  }
+
+  private async resolveProfileImpactProposal(session: AgentSession, action: Extract<AgentArtifactAction, { type: "profile_impact_prepare" | "profile_impact_decide" }>) {
+    const latest = await this.dependencies.persistence.get(session.id);
+    const task = latest?.taskState;
+    if (!latest || !task || !latest.personId) throw new Error("无法确认当前对话和人物。");
+    const report = task.knownSlots.profileImpactReport as SelectedProfileImpact | undefined;
+    if (!report || report.binding.personId !== latest.personId || !await isSelectedProfileImpactCurrent(this.getCareerRepository(), report)) {
+      throw new Error("资料或岗位已变化，请重新分析后再核对简历。");
+    }
+    let proposal = ProfileImpactProposalSchema.safeParse(task.knownSlots.profileImpactProposal);
+    let updatedProposal;
+    if (action.type === "profile_impact_prepare") {
+      const job = report.jobs.find(item => item.jobId === action.jobId && item.status === "ANALYZED");
+      const item = report.changes.find(change => change.id === action.itemId);
+      const requirement = job?.rows.find(row => row.flags.includes("NEW_EVIDENCE_RELEVANT") && row.evidence.some(evidence =>
+        evidence.factRefs.some(ref => item?.factIds.includes(ref.type === "evidence_file" ? ref.linkedFactId : ref.factId))));
+      const branch = await this.getCareerRepository().getAvailableResumeBranch(action.branchId);
+      const profile = await this.getCareerRepository().getAvailableProfile(report.binding.profileId);
+      const data = profile?.structuredFacts?.find(entry => entry.data.id === item?.id)?.data;
+      const description = data && "description" in data && typeof data.description === "string" ? data.description : undefined;
+      if (!job || !item || !requirement || !branch || branch.branchPurpose !== "job_specific" || branch.jobId !== job.jobId
+        || branch.profileId !== report.binding.profileId || !branch.currentRevisionId) throw new Error("未找到可核验的岗位、经历或岗位简历。");
+      updatedProposal = ProfileImpactProposalSchema.parse({ id: `profile-impact-proposal-${crypto.randomUUID()}`, sessionId: latest.id,
+        personId: latest.personId, profileId: report.binding.profileId, profileRevision: report.binding.profileRevision,
+        evidenceFingerprint: report.binding.evidenceFingerprint, jobId: job.jobId, jobFingerprint: job.jobFingerprint,
+        branchId: branch.id, branchRevision: branch.revision, revisionId: branch.currentRevisionId,
+        itemId: item.id, sectionType: item.sectionType, title: item.title, body: item.body,
+        requirement: requirement.requirement, ...(description ? { editableDescription: description } : {}), status: "pending" });
+    } else {
+      if (!proposal.success || proposal.data.id !== action.proposalId || proposal.data.sessionId !== latest.id || proposal.data.status !== "pending") {
+        throw new Error("这份建议已处理或已失效，请重新核对。");
+      }
+      if (action.decision === "ignore") updatedProposal = { ...proposal.data, status: "ignored" as const };
+      else if (action.decision === "include_item" || action.decision === "edit_item" || action.decision === "exclude_item") {
+        if (action.decision === "edit_item" && (!proposal.data.editableDescription || typeof action.editedValue !== "string" || !action.editedValue.trim())) {
+          throw new Error("请填写可核对的经历描述。");
+        }
+        updatedProposal = { ...proposal.data, addDecision: action.decision === "include_item" ? "accept" as const
+          : action.decision === "edit_item" ? "edit" as const : "reject" as const,
+          editedItemText: action.decision === "edit_item" ? action.editedValue as string : undefined };
+      } else if (action.decision === "generate") {
+        const p = proposal.data;
+        const created = await this.dependencies.executor.execute({ toolName: "create_tailoring_session",
+          toolInput: { profileId: p.profileId, profileVersion: p.profileRevision, resumeId: p.branchId,
+            resumeRevisionId: p.revisionId, jobId: p.jobId, mode: "steady" }, operationId: `${p.id}-plan`,
+          agentSessionId: latest.id, careerSessionBinding: careerSessionBindingForSession(latest) });
+        if (!created.ok) throw new Error(created.error?.message ?? "无法生成岗位修改计划。");
+        const initial = TailoringSessionSchema.parse(objectValue(created.data).session);
+        const generated = await this.dependencies.executor.execute({ toolName: "generate_tailoring_changes",
+          toolInput: { session: initial }, operationId: `${p.id}-generate`, agentSessionId: latest.id,
+          careerSessionBinding: careerSessionBindingForSession(latest) });
+        if (!generated.ok) throw new Error(generated.error?.message ?? "无法生成岗位修改建议，请先完成岗位定制中的必要核对。");
+        const tailoring = TailoringSessionSchema.parse(objectValue(generated.data).session);
+        if (!await isSelectedProfileImpactCurrent(this.getCareerRepository(), report)
+          || (await this.getCareerRepository().getAvailableResumeBranch(p.branchId))?.currentRevisionId !== p.revisionId) {
+          throw new Error("资料、岗位或简历已变化，请重新分析。");
+        }
+        updatedProposal = { ...p, diffs: tailoring.plan.diffs ?? [], reviews: [],
+          generationDiagnostics: (tailoring.plan.generationDiagnostics ?? []).map(item => item.code),
+          generationStatus: tailoring.plan.diffs?.length ? "ready" as const : "empty" as const };
+      } else if (action.decision === "accept" || action.decision === "edit" || action.decision === "reject") {
+        const p = proposal.data;
+        const diff = p.diffs.find(candidate => tailoringDiffId(candidate) === action.diffId);
+        if (!diff || (action.decision === "edit" && action.editedValue === undefined)) throw new Error("请先选择有效的修改内容。");
+        const editedValue = action.decision === "edit" && action.editedValue !== undefined
+          ? Array.isArray(diff.value) && typeof action.editedValue === "string"
+            ? action.editedValue.split("\n").map(value => value.trim()).filter(Boolean) : action.editedValue
+          : undefined;
+        if (editedValue !== undefined && Array.isArray(editedValue) !== Array.isArray(diff.value)) throw new Error("修改内容格式不匹配。");
+        updatedProposal = { ...p, reviews: [...p.reviews.filter(review => review.diffId !== action.diffId),
+          { diffId: action.diffId!, decision: action.decision, ...(editedValue !== undefined ? { editedValue } : {}) }] };
+      } else {
+        const p = proposal.data;
+        const item = report.changes.find(change => change.id === p.itemId && change.sectionType === p.sectionType && change.body === p.body);
+        const job = report.jobs.find(candidate => candidate.jobId === p.jobId && candidate.jobFingerprint === p.jobFingerprint && candidate.status === "ANALYZED");
+        const supported = job?.rows.some(row => row.requirement === p.requirement && row.flags.includes("NEW_EVIDENCE_RELEVANT")
+          && row.evidence.some(evidence => evidence.factRefs.some(ref => item?.factIds.includes(ref.type === "evidence_file" ? ref.linkedFactId : ref.factId))));
+        if (!item || !supported || p.personId !== report.binding.personId || p.profileId !== report.binding.profileId
+          || p.profileRevision !== report.binding.profileRevision || p.evidenceFingerprint !== report.binding.evidenceFingerprint) {
+          throw new Error("建议所依据的资料或岗位已变化，请重新核对。");
+        }
+        if (p.diffs.some(diff => !p.reviews.some(review => review.diffId === tailoringDiffId(diff)))) throw new Error("请先逐项核对所有修改建议。");
+        if (p.addDecision === "pending") throw new Error("请先决定是否加入这段经历。");
+        if (p.addDecision === "edit" && !p.editedItemText) throw new Error("请重新核对编辑后的经历描述。");
+        const reviewedDiffs = p.diffs.flatMap(diff => {
+          const review = p.reviews.find(candidate => candidate.diffId === tailoringDiffId(diff));
+          if (!review || review.decision === "reject") return [];
+          return [{ ...diff, value: review.decision === "edit" ? review.editedValue! : diff.value }];
+        });
+        if (p.addDecision === "reject" && reviewedDiffs.length === 0) throw new Error("没有选择修改，简历未写入。");
+        const result = await this.getCareerRepository().addResumeContentItemFromProfileReference({ branchId: p.branchId,
+          expectedRevision: p.branchRevision, operationId: p.id, section: p.sectionType,
+          reviewedDiffs, includeReference: p.addDecision !== "reject", ...(p.addDecision === "edit" ? { referenceEditedText: p.editedItemText } : {}),
+          reference: { type: "canonical", itemId: p.itemId, sectionType: p.sectionType },
+          impactGuard: { personId: p.personId, profileId: p.profileId, profileRevision: p.profileRevision, jobId: p.jobId,
+            jobFingerprint: p.jobFingerprint, revisionId: p.revisionId, evidenceFingerprint: p.evidenceFingerprint } });
+        if (!result.revision || result.branch.id !== p.branchId || result.revision.previousRevisionId !== p.revisionId) {
+          throw new Error("简历版本已写入，但回读核对未完成，请重新打开简历检查。");
+        }
+        updatedProposal = { ...p, status: "applied" as const, resultRevisionId: result.revision.id };
+      }
+    }
+    proposal = ProfileImpactProposalSchema.safeParse(updatedProposal);
+    if (!proposal.success) throw new Error("简历建议状态无效。");
+    const nextTask = { ...task, knownSlots: { ...task.knownSlots, profileImpactProposal: proposal.data }, updatedAt: new Date().toISOString() };
+    let next = projectTaskStateIntoSession(latest, nextTask);
+    if (action.type === "profile_impact_decide" && (action.decision === "ignore" || action.decision === "confirm")) next = appendAgentMessage(next, "assistant", action.decision === "ignore"
+      ? "已忽略这项建议，简历没有修改。" : "已创建该岗位简历的新版本，之前的版本仍然保留。", { status: "complete" });
+    const saved = await this.dependencies.persistence.saveIfRevision(next, latest.sessionRevision);
+    if (this.snapshot.activeSessionId === saved.id) this.patchSession(saved, { artifacts: saved.artifactRefs });
+    return saved;
+  }
+
   private async recheckProfileIntake(session: AgentSession, operationId: string) {
     const latest = await this.dependencies.persistence.get(session.id);
     const task = latest?.taskState;
@@ -3815,7 +3989,15 @@ export class AgentHostStore {
     if (latestOutcome.status === "COMMITTED_VERIFIED" || latestOutcome.status === "NOT_COMMITTED"
       || latestOutcome.status === "LEGACY_UNVERIFIABLE"
       || (latestOutcome.status === "COMMITTED_READBACK_UNVERIFIED" && status !== "COMMITTED_VERIFIED")) return latest;
-    const nextTask = { ...latestTask, knownSlots: { ...latestTask.knownSlots, profileIntakeCommitOutcome: {
+    const nextTask = { ...latestTask,
+      ...(recovered.status === "COMMITTED_VERIFIED" ? { stage: "profile_complete", completionStatus: "waiting_for_user" as const } : {}),
+      knownSlots: { ...latestTask.knownSlots,
+      ...(recovered.status === "COMMITTED_VERIFIED" ? { profileImpactEvidence: recovered.evidence ? {
+        status: "ready", personId: frozen.personId, profileId: recovered.receipt.profileId,
+        profileRevision: recovered.receipt.profileVersion, operationId: action.operationId,
+        graphFingerprint: sha256Utf8(stableStringify(recovered.evidence.graph)), changedFactIds: recovered.evidence.changedFactIds
+      } : { status: "unavailable", error: recovered.evidenceError ?? "profile_evidence_build_failed" } } : {}),
+      profileIntakeCommitOutcome: {
       ...latestOutcome, status,
       ...("receipt" in recovered ? { receipt: recovered.receipt } : {})
     } }, ...(recovered.status === "COMMITTED_VERIFIED" ? { selectedEntities: { ...latestTask.selectedEntities,
@@ -5741,6 +5923,12 @@ export class AgentHostStore {
         ...state.knownSlots,
         profileIntakeCommitOutcome: { status: "COMMITTED_VERIFIED", operationId: commitOperationId, importId, targetProfileId, request: commitRequest },
         profilePersistenceReceipt: receipt,
+        profileImpactEvidence: authoritative.evidence ? {
+          status: "ready", personId: commitProfile.personId, profileId: committedProfileId,
+          profileRevision: committedVersion, operationId: commitOperationId,
+          graphFingerprint: sha256Utf8(stableStringify(authoritative.evidence.graph)),
+          changedFactIds: authoritative.evidence.changedFactIds
+        } : { status: "unavailable", error: authoritative.evidenceError ?? "profile_evidence_build_failed" },
         profileCommitResult: commitValue,
         profileCommitVerification: {
           profileId: committedProfileId,
@@ -5753,6 +5941,13 @@ export class AgentHostStore {
       stage: "profile_complete",
       updatedAt: new Date().toISOString()
     };
+    // Refresh only the already-bound identity after authoritative readback. A
+    // different session/person selection must never inherit this commit.
+    if (current.personId === commitProfile.personId && current.activeProfileId === committedProfileId
+      && state.selectedEntities.profileId === committedProfileId) {
+      state = { ...state, selectedEntities: { ...state.selectedEntities, profileVersion: committedVersion } };
+      current = { ...current, profileRevision: committedVersion };
+    }
     const verifiedProfileName = stringValue(verifiedProfile.name) ?? "当前人物";
     const receiptText = `已写入‘${verifiedProfileName} · V${committedVersion}’个人资料库。本次新增 ${numberValue(commitValue.committedItemCount) ?? 0} 项经历、${numberValue(commitValue.committedFactCount) ?? 0} 条事实，读取核验通过。接下来你可以继续补充经历、生成通用简历，或暂时完成。`;
     const alignment = new AuthoritativeConversationAlignmentGuard().validate({
@@ -12478,6 +12673,8 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
   }
   const decision = action.type === "tailoring_diff_decision" || action.type === "tailoring_diff_stage_decision"
     ? action.decision
+    : action.type === "profile_impact_analyze" || action.type === "profile_impact_prepare" || action.type === "profile_impact_decide"
+      ? "analyze"
     : action.type === "tailoring_diff_submit"
       ? "submit"
     : action.type === "profile_intake_recheck"
@@ -13341,7 +13538,7 @@ function artifactActionExecution(
       }
     };
   }
-  if (action.type === "profile_intake_extraction_recovery" || action.type === "profile_intake_recover" || action.type === "profile_intake_recheck") return undefined;
+  if (action.type === "profile_intake_extraction_recovery" || action.type === "profile_intake_recover" || action.type === "profile_intake_recheck" || action.type === "profile_impact_analyze" || action.type === "profile_impact_prepare" || action.type === "profile_impact_decide") return undefined;
   if (
     state.stage !== "resolve_conflicts"
     || typeof state.knownSlots.importId !== "string"

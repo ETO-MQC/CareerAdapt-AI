@@ -32,11 +32,13 @@ export type AgentToolServices = {
   applyPreciseResumeEdit?(input: unknown): Promise<unknown>;
   listResumes(signal?: AbortSignal): Promise<unknown>;
   listProfiles(signal?: AbortSignal): Promise<unknown>;
-  listJobs(signal?: AbortSignal): Promise<unknown>;
+  listJobs(signal?: AbortSignal, context?: AgentToolExecutionContext): Promise<unknown>;
   getActiveProfile?(signal?: AbortSignal): Promise<unknown>;
   getProfile?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   searchProfileFacts?(input: unknown, signal?: AbortSignal): Promise<unknown>;
-  retrieveCareerContext?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  retrieveCareerContext?(input: unknown, signal?: AbortSignal, context?: AgentToolExecutionContext): Promise<unknown>;
+  proposeProfileImpactSelection?(input: unknown, signal?: AbortSignal, context?: AgentToolExecutionContext): Promise<unknown>;
+  proposeImpactReview?(input: unknown, signal?: AbortSignal, context?: AgentToolExecutionContext): Promise<unknown>;
   getResume?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   getResumeRevision?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   getJob?(input: unknown, signal?: AbortSignal): Promise<unknown>;
@@ -350,11 +352,17 @@ export function createAgentToolRegistry(services: AgentToolServices) {
       z.object({ sessionId: z.string().min(1), operationId: z.string().min(8).max(160), proposalHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict(), "resume", "resume"), input => services.applyPreciseResumeEdit!(input)),
     define(services, meta("list_resumes", "发现可用简历；仅返回摘要。需要内容时继续使用 get_resume。", "read", false, true, true, EmptyInputSchema, "resume", "resume_summary"), (_, __, signal) => services.listResumes(signal)),
     define(services, meta("list_profiles", "发现个人资料库；仅返回摘要。需要权威详情时继续使用 get_profile。", "read", false, true, true, EmptyInputSchema, "profile", "profile_summary"), (_, __, signal) => services.listProfiles(signal)),
-    define(services, meta("list_jobs", "发现已保存岗位；仅返回摘要。需要详情时继续使用 get_job。", "read", false, true, true, EmptyInputSchema, "job", "job_summary"), (_, __, signal) => services.listJobs(signal)),
+    define(services, meta("list_jobs", "发现已保存岗位及当前会话待澄清的有序候选；仅返回摘要。需要详情时继续使用 get_job。", "read", false, true, true, EmptyInputSchema, "job", "job_summary"), (_, __, signal, context) => services.listJobs(signal, context)),
+    define(services, meta("propose_profile_impact_selection", "用户要求分析新增经历对已保存岗位的影响时，先列出岗位，再提交所指岗位 ID 供用户最终确认；不分析、不写简历。指代不明、同名或无法确定顺序时，设置 clarificationRequired 并提供有序候选和简短问题；用户回复编号后在同一任务再次提议，绝不猜测。", "read", false, true, true,
+      z.object({ jobIds: z.array(z.string().min(1)).min(1).max(30), clarificationRequired: z.boolean().optional(), question: z.string().min(1).max(200).optional() }).strict(), "job", "job_summary"), (input, _, signal, context) => services.proposeProfileImpactSelection ? services.proposeProfileImpactSelection(input, signal, context) : unavailableTool("propose_profile_impact_selection")),
+    define(services, meta("propose_impact_review", "根据用户对当前影响报告的逐项审核指示，按编号暂存采用、编辑或忽略；先读取当前报告中的 review。不得调用此工具进行最终写入，用户必须在审核界面明确确认。指代不明时先询问。", "read", false, true, true,
+      z.object({ proposalId: z.string().min(1), decisions: z.array(z.object({ index: z.number().int().min(1),
+        decision: z.enum(["accept", "edit", "reject"]), editedValue: z.string().min(1).max(4000).optional() }).strict()).min(1).max(30) }).strict(),
+      "tailoring", "tailoring_session"), (input, _, signal, context) => services.proposeImpactReview ? services.proposeImpactReview(input, signal, context) : unavailableTool("propose_impact_review")),
     define(services, meta("get_active_profile", "读取用户当前明确选择的资料库标识；不会猜测身份。", "read", false, true, true, EmptyInputSchema, "profile", "active_profile"), (_, __, signal) => services.getActiveProfile ? services.getActiveProfile(signal) : unavailableTool("get_active_profile")),
     define(services, meta("get_profile", "按 profileId 读取权威 CareerProfile 详情和来源支持的资料条目。", "read", false, true, true, ProfileIdInputSchema, "profile", "career_profile"), (input, _, signal) => services.getProfile ? services.getProfile(input, signal) : unavailableTool("get_profile")),
     define(services, meta("search_profile_facts", "在指定 CareerProfile 中检索与问题相关的真实经历、技能、教育或证书。", "read", false, true, true, ProfileSearchInputSchema, "profile", "profile_facts"), (input, _, signal) => services.searchProfileFacts ? services.searchProfileFacts(input, signal) : unavailableTool("search_profile_facts")),
-    define(services, meta("retrieve_career_context", "只读检索与当前问题相关的已确认职业事实、证据、岗位信号和安全缺口；不会写入 Profile、Job 或 Resume。", "read", false, true, true, CareerContextRetrieveInputSchema, "profile", "career_context", false, CareerContextRetrieveToolOutputSchema), (input, _, signal) => services.retrieveCareerContext ? services.retrieveCareerContext(input, signal) : unavailableTool("retrieve_career_context")),
+    define(services, meta("retrieve_career_context", "只读检索已确认职业事实与岗位证据；回答本次经历的岗位影响或缺口前应读取当前会话报告摘要。若状态为 stale，告知用户重新分析，不使用旧结论；没有历史基线时不得编造提升百分比。不会写入资料或简历。", "read", false, true, true, CareerContextRetrieveInputSchema, "profile", "career_context", false, CareerContextRetrieveToolOutputSchema), (input, _, signal, context) => services.retrieveCareerContext ? services.retrieveCareerContext(input, signal, context) : unavailableTool("retrieve_career_context")),
     define(services, meta("get_resume", "按 resumeId 读取简历分支的权威结构与当前 Revision 指针。", "read", false, true, true, ResumeIdInputSchema, "resume", "resume_detail"), (input, _, signal) => services.getResume ? services.getResume(input, signal) : unavailableTool("get_resume")),
     define(services, meta("get_resume_revision", "读取指定简历的当前或指定 Revision 快照。", "read", false, true, true, RevisionInputSchema, "resume", "resume_revision"), (input, _, signal) => services.getResumeRevision ? services.getResumeRevision(input, signal) : unavailableTool("get_resume_revision")),
     define(services, meta("get_job", "按 jobId 读取已保存岗位的权威要求详情。", "read", false, true, true, JobIdInputSchema, "job", "job_detail"), (input, _, signal) => services.getJob ? services.getJob(input, signal) : unavailableTool("get_job")),
@@ -538,7 +546,7 @@ function isRetryableToolError(code: string) {
 }
 
 export const agentToolNames = [
-  "list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts",
+  "list_resumes", "list_profiles", "list_jobs", "propose_profile_impact_selection", "propose_impact_review", "get_active_profile", "get_profile", "search_profile_facts",
   // V4-P2-C：该工具此前已在 createAgentToolRegistry 注册但漏在此清单外，
   // 导致 AgentWorkspace 的 allowedToolManifestForStep 永远不会允许它。
   "retrieve_career_context",
