@@ -64,6 +64,7 @@ async function generateResumePdfAttempt(snapshot: ResumePdfExportSnapshot, page:
     const measurement = await page.locator("[data-resume-pagination-measurement='true']").evaluate((element, sectionTypes): ResumePaginationMeasurement => {
       const pageElement = element as HTMLElement;
       const pageRect = pageElement.getBoundingClientRect();
+      const pageStyle = getComputedStyle(pageElement);
       const sections = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-render-section]")).flatMap((sectionElement) => {
         const sectionType = sectionElement.dataset.renderSection;
         if (!sectionType || !sectionTypes.includes(sectionType as (typeof sectionTypes)[number])) {
@@ -99,6 +100,7 @@ async function generateResumePdfAttempt(snapshot: ResumePdfExportSnapshot, page:
           top: rect.top - pageRect.top,
           bottom: rect.bottom - pageRect.top,
           height: rect.height,
+          inlineRow: blockElement.dataset.paginationInline === "true",
           units: unitElements.flatMap((unit) => {
             const key = unit.dataset.paginationUnit;
             if (!key) return [];
@@ -115,6 +117,8 @@ async function generateResumePdfAttempt(snapshot: ResumePdfExportSnapshot, page:
       return {
         scrollHeight: pageElement.scrollHeight,
         clientHeight: pageElement.clientHeight,
+        paddingTop: parseFloat(pageStyle.paddingTop),
+        paddingBottom: parseFloat(pageStyle.paddingBottom),
         sections,
         blocks
       };

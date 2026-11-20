@@ -247,3 +247,15 @@ it("explicit archive receipts remain usable while archived content stays isolate
     { ...f.context, operationId: "archive-isolation-action" });
   expect(replay.ok).toBe(false);
 });
+
+
+it("keeps normal root-branch conversation history available across turns", async () => {
+  const f = await fixture();
+  const session = { ...AgentRuntime.createConversationSession(), personId: f.profile.personId,
+    activeProfileId: f.profile.id, profileRevision: f.profile.version, profileVersionNumber: f.profile.profileVersionNumber ?? 1 };
+  const first = await f.service.prepareAvailableRuntimeContext(session);
+  const second = await f.service.prepareAvailableRuntimeContext(first.session);
+  expect(second.resetContext).toBe(false);
+  expect(second.suppressConversationHistory).toBe(false);
+  expect(second.hermesSessionId).toBe(first.hermesSessionId);
+});

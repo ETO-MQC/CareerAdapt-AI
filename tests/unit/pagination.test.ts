@@ -18,6 +18,23 @@ const baseConfig: ResumePresentationConfig["pagination"] = {
 };
 
 describe("P3.8a multi-page pagination planning", () => {
+  it("keeps inline skill items on the same measured row together without counting the row twice", () => {
+    const plan = createResumePaginationPlan({
+      measurement: {
+        scrollHeight: 105,
+        clientHeight: 100,
+        sections: [{ sectionType: "skills", sectionId: "skills", top: 0, bottom: 105, height: 105, blockIds: ["a", "b", "c"] }],
+        blocks: [
+          { sourceItemId: "a", sectionType: "skills", sectionId: "skills", top: 0, bottom: 80, height: 80 },
+          { sourceItemId: "b", sectionType: "skills", sectionId: "skills", top: 80, bottom: 105, height: 25, inlineRow: true },
+          { sourceItemId: "c", sectionType: "skills", sectionId: "skills", top: 80, bottom: 105, height: 25, inlineRow: true }
+        ]
+      },
+      paginationConfig: baseConfig
+    });
+    expect(plan.pages.map((page) => page.blockIds)).toEqual([["a"], ["b", "c"]]);
+    expect(plan.pages[1].utilization?.usedHeight).toBe(25);
+  });
   it("uses sequential first-fit and never moves a fitting item to balance two pages", () => {
     const measurement = {
       scrollHeight: 1050,

@@ -6,6 +6,8 @@ import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import type { AgentMessage } from "@/agent/contracts/agentSession";
 import type { AgentHostSnapshot } from "@/agent/runtime/AgentHostStore";
 import { agentRunPresentation } from "@/components/agent/workspace/agentRunPresentation";
+import { attachmentRuntimeReady } from "@/components/agent/AgentWorkspace";
+import type { RuntimeStatusSnapshot } from "@/agent/runtime/runtimeStatus";
 import { AgentComposer, type ComposerAttachmentDraft } from "@/components/agent/AgentComposer";
 import { AgentConversationTimeline } from "@/components/agent/AgentConversation";
 import { AgentHistoryDialog } from "@/components/agent/AgentHistoryDialog";
@@ -209,5 +211,18 @@ describe("COMP-01 composer", () => {
     rerender(<AgentComposer {...props} stopping aiStatus="正在停止" />);
     expect(screen.getByRole("button", { name: "正在停止" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "停止运行" })).toBeNull();
+  });
+});
+
+
+describe("attachment runtime readiness", () => {
+  it("uses the current supervisor readiness instead of an older health snapshot", () => {
+    const status = {
+      status: "ready", supervisorOwned: true, supervisorSnapshot: { runReady: true },
+      health: { runtimeAvailable: false }
+    } as unknown as RuntimeStatusSnapshot;
+    expect(attachmentRuntimeReady(status)).toBe(true);
+    expect(attachmentRuntimeReady({ ...status, supervisorSnapshot: { ...status.supervisorSnapshot!, runReady: false } })).toBe(false);
+    expect(attachmentRuntimeReady({ ...status, supervisorOwned: false })).toBe(false);
   });
 });

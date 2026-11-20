@@ -10,6 +10,7 @@ export const PresentationPrecisionSchema = z.object({
   primaryColor: color, accentColor: color, dividerColor: color, titleFollowColor: z.boolean().optional(),
   titleStyle: z.enum(["plain", "underline", "tint", "rail", "accent_line", "soft"]).optional(), entryStyle: z.enum(["inline", "stacked", "compact"]).optional(),
   entryAlignment: z.enum(["left", "center", "right"]).optional(),
+  skillLayout: z.enum(["inline", "stacked"]).optional(),
   linkStyle: z.enum(["plain", "accent", "underline"]).optional(),
   bulletStyle: z.enum(["disc", "circle", "square", "dash", "decimal", "none"]).optional(),
   bulletScale: bounded(0.5, 2), underlineWidth: bounded(0.5, 4), titleBar: z.boolean().optional(),

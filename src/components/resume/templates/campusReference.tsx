@@ -4,6 +4,7 @@ import { section } from "./shared/legacy";
 import type { TemplateRenderer } from "./types";
 
 const ORDER: ResumeSectionTypeV2[] = ["education", "work", "internship", "project", "research", "campus", "volunteer", "training", "skills", "certificates", "languages", "awards", "publications", "patents", "portfolio", "other", "custom", "summary"];
+const REFERENCE_ORDER: ResumeSectionTypeV2[] = ["education", "work", "internship", "project", "research", "campus", "volunteer", "training", "certificates", "languages", "skills", "awards", "publications", "patents", "portfolio", "other", "custom", "summary"];
 
 /** Reference-led single column. Canonical sections and item IDs stay intact for coverage and editing. */
 export const renderCampusReference: TemplateRenderer = (model, context) => {
@@ -13,7 +14,7 @@ export const renderCampusReference: TemplateRenderer = (model, context) => {
       {section(model, "experience", undefined, context)}{section(model, "skills", "inline", context)}
       {section(model, "certificates", "inline", context)}{section(model, "summary", undefined, context)}</>;
   }
-  const sections = orderCanonicalSections(model.structuredSections, ORDER, context);
+  const sections = orderCanonicalSections(model.structuredSections, context?.referenceCompact ? REFERENCE_ORDER : ORDER, context);
   // Grouping is purely visual: preserve each canonical section container and its coverage identity.
   let groupStarted = false;
   const groupedHeadingSectionIds: string[] = [];

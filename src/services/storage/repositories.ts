@@ -4,6 +4,7 @@ import { assertPreciseDependencies, assertPreciseGuard, assertPreciseOwnership, 
 import { canonicalJson, preciseSha256 } from "@/domain/resumeEditing/preciseResumeEdit";
 import { CorrectionSourceSchema, ResumeFactProposalSchema, type StructuredProposal } from "@/domain/resumeEditing/structuredResumeOperation";
 import { ResumeLayoutPresetSchema, ResumeLayoutPresetsSchema, type ResumeLayoutStyle } from "@/domain/resumePresentation/layoutPresets";
+import { REFERENCE_TEMPLATE_STYLE } from "@/domain/resumePresentation/referenceTemplateStyle";
 import Dexie from "dexie";
 import { MaterialIntakeArtifactSchema, MaterialReviewStateSchema, type MaterialIntakeArtifact } from "@/domain/materialIntake/materialIntake";
 import { z } from "zod";
@@ -9865,6 +9866,7 @@ function createDefaultPresentationConfig(input: {
     schemaVersion: "resume-presentation-v1",
     branchId: input.branch.id,
     templateId: input.templateId ?? "classic-technical",
+    ...((input.templateId ?? "classic-technical") === "classic-technical" ? REFERENCE_TEMPLATE_STYLE : {}),
     contentRevision: {
       branchRevision: input.branch.revision,
       currentRevisionId: input.branch.currentRevisionId

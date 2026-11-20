@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import { useState } from "react";
-import { NumberControl } from "@/components/resume/PrecisionInspector";
+import { NumberControl, PrecisionInspector } from "@/components/resume/PrecisionInspector";
 import { StringListEditor } from "@/components/editor/StringListEditor";
 import { ResumePresentationConfigSchema } from "@/domain/schemas";
 import { layoutStyleFrom, referenceLayoutStyle, ResumeLayoutStyleSchema } from "@/domain/resumePresentation/layoutPresets";
@@ -14,6 +14,17 @@ import { orderContactDetails, resumeContactDetails } from "@/domain/resumePresen
 let db: CareerAdaptDb | undefined;
 afterEach(async () => { cleanup(); vi.unstubAllGlobals(); if (db) { db.close(); await db.delete(); db = undefined; } });
 const base = () => ResumePresentationConfigSchema.parse({ schemaVersion: "resume-presentation-v1", branchId: "branch", templateId: "campus-reference", contentRevision: { branchRevision: 2, currentRevisionId: "revision" }, presentationRevision: 3, updatedAt: "2026-10-26T00:00:00.000Z" });
+
+it("lets users choose compact or separate skill and certificate rows", () => {
+  const change = vi.fn();
+  render(<PrecisionInspector config={base()} tab="colors" disabled={false} supportsPhoto onPrecision={change} onTypography={() => {}} onDensity={() => {}} onMultiPage={() => {}} onShowPhoto={() => {}} onReferencePreset={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "同行紧凑" }));
+  expect(change).toHaveBeenCalledWith({ skillLayout: "inline" });
+  const saved = ResumePresentationConfigSchema.parse({ ...base(), precision: { skillLayout: "inline" } });
+  expect(layoutStyleFrom(saved).precision?.skillLayout).toBe("inline");
+  fireEvent.click(screen.getByRole("button", { name: "逐条分行" }));
+  expect(change).toHaveBeenLastCalledWith({ skillLayout: "stacked" });
+});
 
 it("allows partial numeric drafts and applies/clamps only on confirmation", () => {
   const commit = vi.fn();

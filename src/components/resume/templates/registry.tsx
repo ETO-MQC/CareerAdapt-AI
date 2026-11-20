@@ -1,5 +1,6 @@
 import type { ResumeRenderModel, TemplateId } from "@/domain/schemas";
 import { RESUME_SECTION_TYPES_V2 } from "@/domain/resumeFields";
+import { REFERENCE_TEMPLATE_STYLE } from "@/domain/resumePresentation/referenceTemplateStyle";
 import { renderAtsMinimal } from "./atsMinimal";
 import { renderBusinessConsulting } from "./businessConsulting";
 import { renderCampusReference } from "./campusReference";
@@ -110,13 +111,13 @@ export const resumeTemplates: ResumeTemplateDefinition[] = [
     id: "classic-technical",
     name: "稳重技术",
     shortName: "技术",
-    description: "稳重单栏结构，优先突出项目、技能和可验证成果。",
+    description: "参考简历的紧凑单栏结构，清晰展示教育、经历与技能证书。",
     category: "technical",
     layout: "single-column",
     atsLevel: "high",
     suitableRoles: ["技术", "数据", "研究", "产品"],
     tags: ["技术简洁", "项目经历", "单栏"],
-    defaultPresentationStyle: DEFAULT_TEMPLATE_STYLE_CONFIG,
+    defaultPresentationStyle: { ...DEFAULT_TEMPLATE_STYLE_CONFIG, ...REFERENCE_TEMPLATE_STYLE },
     className: "template-classic-technical",
     render: renderClassicTechnical
   }),

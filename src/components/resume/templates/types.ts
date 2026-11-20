@@ -41,6 +41,7 @@ export type TemplateRenderContext = {
   thumbnail?: boolean;
   measurement?: boolean;
   inlineDepartment?: boolean;
+  referenceCompact?: boolean;
   pagination?: {
     pageNumber: number;
     pageCount: number;

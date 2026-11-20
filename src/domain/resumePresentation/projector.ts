@@ -58,6 +58,7 @@ export function projectResumePresentationItem(item: ResumeItemV2): ResumePresent
         location: item.location,
         description: item.description,
         highlights: [...item.honors, ...item.highlights],
+        educationHonorCount: item.honors.length,
         customRows: [
           ...educationRows(item),
           ...base.customRows
@@ -260,12 +261,15 @@ function dedupePresentation(item: ResumePresentationItem): ResumePresentationIte
   ]).map(normalizePresentationSentence));
   const secondaryMeta = uniqueSemantic(item.secondaryMeta).filter((value) => !occupied.has(normalizePresentationSentence(value)));
   secondaryMeta.forEach((value) => occupied.add(normalizePresentationSentence(value)));
+  const visibleHighlights = highlights.filter((value) => !occupied.has(normalizePresentationSentence(value)));
+  const honorKeys = new Set(item.highlights.slice(0, item.educationHonorCount ?? 0).map(normalizePresentationSentence));
   return {
     ...item,
     inlineMeta,
     description,
     secondaryMeta,
-    highlights: highlights.filter((value) => !occupied.has(normalizePresentationSentence(value))),
+    highlights: visibleHighlights,
+    ...(item.educationHonorCount === undefined ? {} : { educationHonorCount: visibleHighlights.filter((value) => honorKeys.has(normalizePresentationSentence(value))).length }),
     links: unique(item.links),
     customRows: item.customRows.filter((row, index, rows) => rows.findIndex((candidate) => candidate.label === row.label && candidate.value === row.value) === index)
   };

@@ -12050,7 +12050,7 @@ html[data-theme="dark"] .inspector-tab-active {
   font-weight: 700;
 }
 .template-campus-reference .resume-template-section h2::after { display: none; }
-.template-campus-reference .resume-presentation-heading { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) max-content; gap: 2mm; }
+.template-campus-reference .resume-presentation-heading { grid-template-columns: minmax(0, max-content) minmax(0, 1fr) max-content; gap: 2mm; }
 .template-campus-reference .resume-presentation-heading strong { text-align: center; }
 .template-campus-reference .resume-presentation-heading h3,
 .template-campus-reference .resume-presentation-heading strong,
@@ -12151,7 +12151,7 @@ html[data-theme="dark"] .inspector-tab-active {
 .resume-a4-page[data-precision-entry="stacked"] .resume-presentation-heading { grid-template-columns: minmax(0,1fr) auto; }
 .resume-a4-page[data-precision-entry="stacked"] .resume-presentation-heading strong { grid-column: 1; grid-row: 2; text-align: left; }
 .resume-a4-page[data-precision-entry="stacked"] .resume-presentation-heading time { grid-column: 2; grid-row: 1; }
-.resume-a4-page[data-precision-entry="inline"] .resume-presentation-heading { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; }
+.resume-a4-page[data-precision-entry="inline"] .resume-presentation-heading { grid-template-columns: minmax(0,max-content) minmax(0,1fr) max-content; }
 .resume-a4-page[data-precision-link="plain"] a { color: inherit; text-decoration: none; }
 .resume-a4-page[data-precision-link="accent"] a { color: var(--resume-accent-color, #176b5b); text-decoration: none; }
 .resume-a4-page[data-precision-link="underline"] a { color: var(--resume-accent-color, #176b5b); text-decoration: underline; text-decoration-thickness: var(--resume-underline-width, 1px); }
@@ -12312,3 +12312,93 @@ html[data-theme="dark"] .inspector-tab-active {
 .resume-save-badge { font-size:11px; padding:3px 8px; }
 html[data-theme="dark"] .resume-save-badge-saved { color:#88cba0; }
 html[data-theme="dark"] .resume-save-badge-dirty, html[data-theme="dark"] .resume-save-badge-error { color:#f08f8f; }
+
+/* Default single-column template, based on the supplied reference resume. */
+.template-classic-technical .resume-template-header {
+  display: block;
+  border: 0;
+  text-align: center;
+  padding: 0 0 3mm;
+}
+.template-classic-technical .resume-template-header h1 { margin-bottom: 1mm; }
+.template-classic-technical .resume-template-header p { font-weight: 400; }
+.template-classic-technical .resume-template-header address { margin-top: 2mm; text-align: center; }
+.template-classic-technical .resume-template-section {
+  border: 0;
+  padding: 0;
+  margin: 0 0 calc(var(--resume-section-padding-bottom, 2.8mm) * .55);
+}
+.template-classic-technical .resume-template-section h2 {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--resume-accent-color, #1d4f91);
+  color: var(--resume-accent-color, #1d4f91);
+  border-radius: 0;
+  padding: 0 0 .5mm;
+  margin: 0 0 1mm;
+}
+.template-classic-technical .resume-template-section h2::after { display: none; }
+.template-classic-technical .resume-presentation-heading { grid-template-columns: minmax(0, max-content) minmax(0, 1fr) max-content; gap: 2mm; }
+.template-classic-technical .resume-presentation-heading strong { text-align: center; }
+.template-classic-technical .resume-presentation-heading h3,
+.template-classic-technical .resume-presentation-heading strong,
+.template-classic-technical .resume-presentation-heading time { font-size: var(--resume-body-font-size); font-weight: 700; color: #111; }
+.template-classic-technical .resume-canonical-item { gap: 0; }
+.template-classic-technical .resume-block-list { gap: calc(var(--resume-item-gap, 2mm) * .5); }
+.template-classic-technical .resume-presentation-highlights { gap: 0; padding-left: 4mm; }
+.template-classic-technical .resume-presentation-highlights li::marker { color: var(--resume-accent-color, #1d4f91); }
+.template-classic-technical .resume-skill-groups { gap: .4mm; }
+.template-classic-technical .resume-skill-group { display: flex; align-items: flex-start; padding-left: 4mm; position: relative; }
+.template-classic-technical .resume-skill-group::before { content: "•"; color: var(--resume-accent-color, #1d4f91); position: absolute; left: 0; }
+.template-classic-technical .resume-skill-group > strong { display: inline; }
+.template-classic-technical .resume-skill-values { display: flex; flex: 1; min-width: 0; flex-wrap: wrap; align-items: flex-start; gap: 0 1mm; }
+.template-classic-technical .resume-skill-item { display: block; max-width: 100%; }
+.template-classic-technical .resume-skill-item:not(:last-child)::after { content: "、"; }
+.template-classic-technical .resume-skill-name { font-weight: 400; }
+.template-classic-technical .resume-skill-description { display: inline; }
+.template-classic-technical .resume-skill-description::before { content: "："; }
+.template-classic-technical [data-render-section="certificates"] .resume-block-list { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 1mm; padding-left: 4mm; position: relative; }
+.template-classic-technical [data-render-section="certificates"] .resume-block-list::before { content: "•"; color: var(--resume-accent-color, #1d4f91); position: absolute; left: 0; }
+.template-classic-technical [data-render-section="certificates"] .resume-block-list::after { content: "专业证书："; order: -1; font-weight: 700; }
+.template-classic-technical [data-render-section="certificates"] .resume-canonical-item[data-pagination-inline] { display: flex; align-items: baseline; max-width: 100%; }
+.template-classic-technical [data-render-section="certificates"] .resume-canonical-item[data-pagination-inline]:not(:last-child)::after { content: "、"; }
+.template-classic-technical [data-render-section="certificates"] .resume-canonical-item:not([data-pagination-inline]) { flex-basis: 100%; }
+.template-classic-technical [data-render-section="certificates"] [data-pagination-inline] .resume-presentation-heading { display: flex; flex-wrap: wrap; gap: 0 1mm; }
+.template-classic-technical [data-render-section="certificates"] [data-pagination-inline] .resume-presentation-heading h3 { font-weight: 400; }
+.resume-education-field + .resume-education-field { margin-left: 3mm; }
+.template-classic-technical [data-render-section="languages"] .resume-language-list { position: relative; padding-left: 4mm; }
+.template-classic-technical [data-render-section="languages"] .resume-language-list::before { content: "•"; position: absolute; left: 0; color: var(--resume-accent-color, #1d4f91); }
+.template-classic-technical [data-render-section="languages"] .resume-language-list::after { content: "语言能力："; order: -1; font-weight: 700; }
+.template-classic-technical [data-render-section="certificates"] .resume-block-list::after,
+.template-classic-technical [data-render-section="languages"] .resume-language-list::after { font-size: var(--resume-body-font-size); line-height: var(--resume-line-height); }
+
+/* Keep short skill and certificate entries together when the user chooses compact layout. */
+.resume-a4-page[data-precision-skill-layout="inline"] .resume-skill-group { display: flex; align-items: flex-start; gap: 1mm; }
+.resume-a4-page[data-precision-skill-layout="inline"] .resume-skill-values { display: flex; flex: 1; min-width: 0; flex-wrap: wrap; align-items: flex-start; gap: 0 1mm; }
+.resume-a4-page[data-precision-skill-layout="inline"] .resume-skill-item { display: block; max-width: 100%; }
+.resume-a4-page[data-precision-skill-layout="inline"] .resume-skill-item:not([data-pagination-inline]) { flex-basis: 100%; }
+.resume-a4-page[data-precision-skill-layout="inline"] .resume-skill-item:not(:last-child)::after { content: "、"; }
+.resume-a4-page[data-precision-skill-layout="inline"] .resume-skill-description { display: inline; }
+.resume-a4-page[data-precision-skill-layout="inline"] .resume-skill-description::before { content: "："; }
+.resume-a4-page[data-precision-skill-layout="inline"] [data-render-section="certificates"] .resume-block-list { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 1mm; }
+.resume-a4-page[data-precision-skill-layout="inline"] [data-render-section="certificates"] .resume-canonical-item[data-pagination-inline] { display: flex; align-items: baseline; max-width: 100%; }
+.resume-a4-page[data-precision-skill-layout="inline"] [data-render-section="certificates"] .resume-canonical-item[data-pagination-inline]:not(:last-child)::after { content: "、"; }
+.resume-a4-page[data-precision-skill-layout="inline"] [data-render-section="certificates"] .resume-canonical-item:not([data-pagination-inline]) { flex-basis: 100%; }
+.resume-a4-page[data-precision-skill-layout="inline"] [data-render-section="certificates"] [data-pagination-inline] .resume-presentation-heading { display: flex; flex-wrap: wrap; gap: 0 1mm; }
+.resume-a4-page.template-classic-technical[data-precision-skill-layout="stacked"] .resume-skill-values { display: grid; gap: 1.5mm; }
+.resume-a4-page.template-classic-technical[data-precision-skill-layout="stacked"] .resume-skill-item { display: grid; }
+.resume-a4-page.template-classic-technical[data-precision-skill-layout="stacked"] .resume-skill-item::after { content: none; }
+.resume-a4-page.template-classic-technical[data-precision-skill-layout="stacked"] .resume-skill-description { display: block; }
+.resume-a4-page.template-classic-technical[data-precision-skill-layout="stacked"] .resume-skill-description::before { content: none; }
+.resume-a4-page.template-classic-technical[data-precision-skill-layout="stacked"] [data-render-section="certificates"] .resume-block-list { display: grid; }
+.resume-a4-page.template-classic-technical[data-precision-skill-layout="stacked"] [data-render-section="certificates"] .resume-canonical-item::after { content: none; }
+.template-classic-technical .resume-skill-group::before,
+.template-classic-technical [data-render-section="certificates"] .resume-block-list::before,
+.template-classic-technical [data-render-section="languages"] .resume-language-list::before {
+  font-size: calc(var(--resume-body-font-size) * var(--resume-bullet-scale, 1));
+  line-height: var(--resume-line-height);
+  color: var(--resume-accent-color, #1d4f91);
+}
+
+/* Preserve user-entered line breaks in entry headings. */
+.resume-presentation-heading h3 { white-space: pre-line; }

@@ -374,7 +374,7 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     await expect(page.locator('.agent-message-attachments')).toContainText("queued-certificate.txt");
   });
 
-  test("CASE J — material source, Hermes classification and Profile draft continue in one Run", async ({ page }) => {
+  test("CASE J — material source, Hermes classification and Profile draft continue in one Run", async ({ page }, info) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
     await expect.poll(async () => (await readStore(page, "appMeta")).some(row => row.key === "demoSeededAt")).toBe(true);
@@ -401,6 +401,142 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     expect(current?.artifactRefs).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "resume_import_review", entityId: expect.stringMatching(/^material-profile:/u) })]));
     expect(receipt.formalProfiles).toBe(profilesBefore.length);
     expect(await readStore(page, "profiles")).toEqual(profilesBefore);
+    await page.screenshot({ path: info.outputPath("before-open-review.png") });
+    const review = page.getByRole("button", { name: "核对导入内容", exact: true });
+    await expect(review).toBeVisible();
+    await review.click();
+    let dialog = page.getByTestId("agent-import-review-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("certificate.txt");
+    await page.screenshot({ path: info.outputPath("open-review.png") });
+    expect(await readStore(page, "profiles")).toEqual(profilesBefore);
+    await dialog.getByRole("button", { name: "关闭导入窗口" }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.reload();
+    await expect(review).toBeVisible();
+    await review.click();
+    dialog = page.getByTestId("agent-import-review-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("certificate.txt");
+    expect(await readStore(page, "profiles")).toEqual(profilesBefore);
+  });
+
+  test("CASE J PDF attachment reaches Hermes and material review", async ({ page }, info) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem("careeradapt-ai-settings") ?? "{}");
+      localStorage.setItem("careeradapt.resumeImportAiPreference", JSON.stringify({ schemaVersion: "resume-import-ai-preference-v1", mode: "local", providerFingerprint: [settings.provider, settings.baseUrl, settings.model].join("|") }));
+    });
+    const bytes = await readFile("tests/fixtures/pdf/chinese-resume-reportlab.pdf");
+    const pdf = Buffer.concat([bytes, Buffer.alloc(Math.max(0, 1600 * 1024 - bytes.length), 32)]);
+    await page.locator('.agent-composer input[type="file"]').setInputFiles({ name: "synthetic-resume.pdf", mimeType: "application/pdf", buffer: pdf });
+    await send(page, "P512-MATERIAL，把这个材料整理到资料库");
+    await expectAssistant(page, "已识别为证书，已生成候选资料，请核对后确认保存。");
+    await expect.poll(() => trace.toolRequests.filter(request => request.name === "career.workflow.material_intake").length).toBe(2);
+    await expect(page.locator('.agent-message-attachments')).toContainText("synthetic-resume.pdf");
+    const rows = await readStore(page, "appMeta");
+    const sources = rows.filter(row => typeof row.key === "string" && row.key.startsWith("material-intake:"));
+    expect(JSON.stringify(sources)).toContain("sourceDocument");
+    expect(JSON.stringify(sources)).toContain("pdf");
+    const profilesBeforeReview = await readStore(page, "profiles");
+    const review = page.getByRole("button", { name: "核对导入内容", exact: true });
+    await expect(review).toBeVisible();
+    await page.screenshot({ path: info.outputPath("review-entry.png") });
+    await review.click();
+    let dialog = page.getByTestId("agent-import-review-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("synthetic-resume.pdf");
+    await page.screenshot({ path: info.outputPath("review-dialog.png") });
+    expect(await readStore(page, "profiles")).toEqual(profilesBeforeReview);
+    await dialog.getByRole("button", { name: "关闭导入窗口" }).click();
+    await page.reload();
+    await expect(review).toBeVisible();
+    await review.click();
+    dialog = page.getByTestId("agent-import-review-dialog");
+    await expect(dialog).toContainText("synthetic-resume.pdf");
+    expect(await readStore(page, "profiles")).toEqual(profilesBeforeReview);
+  });
+
+  test("CASE J direct resume review and explicit confirmation", async ({ page }, info) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem("careeradapt-ai-settings") ?? "{}");
+      localStorage.setItem("careeradapt.resumeImportAiPreference", JSON.stringify({ schemaVersion: "resume-import-ai-preference-v1", mode: "local", providerFingerprint: [settings.provider, settings.baseUrl, settings.model].join("|") }));
+    });
+    const beforeProfiles = await readStore(page, "profiles");
+    const beforeBranches = await readStore(page, "resumeBranches");
+    await page.locator('.agent-composer input[type="file"]').setInputFiles("tests/fixtures/resume-import/ordinary.docx");
+    await send(page, "P512-RESUME-REVIEW 请导入这份简历");
+    await expectAssistant(page, "简历已解析，请核对导入内容。");
+    await expect.poll(() => trace.toolRequests.filter(request => request.name === "career.workflow.resume_import").length).toBe(1);
+    const review = page.getByRole("button", { name: "核对导入内容", exact: true });
+    await expect(review).toBeVisible();
+    await page.screenshot({ path: info.outputPath("direct-review-entry.png") });
+    await review.click();
+    const dialog = page.getByTestId("agent-import-review-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("Built a verified analytics dashboard.");
+    await expect(dialog.getByRole("button", { name: "确认导入", exact: true })).toBeVisible();
+    expect(await readStore(page, "profiles")).toEqual(beforeProfiles);
+    expect(await readStore(page, "resumeBranches")).toEqual(beforeBranches);
+    await dialog.getByText("创建新人物", { exact: true }).click();
+    await dialog.locator('input[name="new-profile-name"]').fill("导入核对测试人物");
+    const confirm = dialog.getByRole("button", { name: "确认导入", exact: true });
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(async () => (await readStore(page, "profiles")).some(profile => profile.name === "导入核对测试人物")).toBe(true);
+    await expect(review).toHaveCount(0);
+  });
+
+  test("CASE J short resume checkpoint diagnostic", async ({ page }, info) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem("careeradapt-ai-settings") ?? "{}");
+      localStorage.setItem("careeradapt.resumeImportAiPreference", JSON.stringify({ schemaVersion: "resume-import-ai-preference-v1", mode: "local", providerFingerprint: [settings.provider, settings.baseUrl, settings.model].join("|") }));
+    });
+    await page.locator('.agent-composer input[type="file"]').setInputFiles("tests/fixtures/resume-import/ordinary.docx");
+    await send(page, "P512-RESUME-REVIEW 请导入这份简历");
+    await expectAssistant(page, "简历已解析，请核对导入内容。");
+    expect(trace.toolRequests.length).toBeGreaterThan(0);
+    const before = await readStore(page, "profiles");
+    const review = page.getByRole("button", { name: "核对导入内容", exact: true });
+    await expect(review).toBeVisible({ timeout: 5_000 });
+    await page.screenshot({ path: info.outputPath("resume-review-entry.png") });
+    await review.click();
+    const dialog = page.getByTestId("agent-import-review-dialog");
+    await expect(dialog).toContainText("Built a verified analytics dashboard.");
+    await expect(dialog.getByRole("button", { name: "确认导入", exact: true })).toBeVisible();
+    expect(await readStore(page, "profiles")).toEqual(before);
+    await dialog.getByRole("button", { name: "关闭导入窗口" }).click();
+    await page.getByLabel("描述你的求职任务").fill("确认导入");
+    await page.getByLabel("描述你的求职任务").press("Enter");
+    await expect(dialog).toBeVisible();
+    expect(await readStore(page, "profiles")).toEqual(before);
+    await dialog.getByText("创建新人物", { exact: true }).click();
+    await dialog.locator('input[name="new-profile-name"]').fill("导入核对短测人物");
+    const confirm = dialog.getByRole("button", { name: "确认导入", exact: true });
+    await expect(confirm).toBeEnabled({ timeout: 10_000 });
+    await confirm.click();
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(async () => (await readStore(page, "profiles")).some(profile => profile.name === "导入核对短测人物")).toBe(true);
+    await expect(review).toHaveCount(0);
+  });
+
+  test("CASE J normal conversation preserves prior turns across reload", async ({ page }) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await send(page, "P512-MEMORY-FIRST 记住测试代号松树");
+    await expectAssistant(page, "已记住测试代号松树。");
+    await expect.poll(() => trace.runtimeActions.filter(action => action === "run_start").length).toBe(1);
+    await page.reload();
+    await assertHermesReadyForCase(page);
+    await send(page, "P512-MEMORY-SECOND 上一轮的代号是什么？");
+    await expectAssistant(page, "上一轮的测试代号是松树。");
+    await expect.poll(() => trace.runtimeActions.filter(action => action === "run_start").length).toBe(2);
   });
 
   test("CASE L Core-02 — saved JD, Fit, follow-up tailoring, confirmed isolated revision and PDF", async ({ page }, testInfo) => {

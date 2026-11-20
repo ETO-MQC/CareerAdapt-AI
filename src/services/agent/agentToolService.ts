@@ -1258,8 +1258,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         targetCities: profile.preference.targetCities.slice(0, 20).map(value => value.slice(0, 120)),
         industries: profile.preference.industries.slice(0, 20).map(value => value.slice(0, 120)) } : undefined;
     return { session: current, resetContext, ...(trustedCareerPreferences ? { trustedCareerPreferences } : {}),
-      suppressConversationHistory: resetContext || access.hasRevocations
-        || !session.conversationBranches.some(branch => branch.id === session.activeBranchId && branch.parentBranchId),
+      suppressConversationHistory: resetContext || access.hasRevocations,
       hermesSessionId: `hermes-${session.id}-access-${access.scope}` };
   }
 

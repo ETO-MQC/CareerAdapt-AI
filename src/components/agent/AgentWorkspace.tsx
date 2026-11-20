@@ -8,7 +8,8 @@ import {
   getAgentSessionDisplayTitle,
   type AgentMessage,
   type AgentMessageReference,
-  type AgentSession
+  type AgentSession,
+  type AgentTaskState
 } from "@/agent/contracts/agentSession";
 import type { AgentArtifactAction, AgentOption, AgentUiAction, AgentWorkflowControl } from "@/agent/contracts/agentActions";
 import { createQuickActionIntent, type AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
@@ -204,6 +205,19 @@ export function AgentWorkspace() {
   const attachments = attachmentsBySession[session.id] ?? [];
   const attachmentPersistence = useRef(Promise.resolve());
   const composerAttachmentRefs = useRef(new Map<string, string>());
+  const composerAttachmentRegistrations = useRef(new Map<string, Promise<string>>());
+  const ensureComposerAttachment = useCallback((draft: ComposerAttachmentDraft, id: string) => {
+    const existing = draft.attachmentId ?? composerAttachmentRefs.current.get(draft.clientId);
+    if (existing) return Promise.resolve(existing);
+    const pending = composerAttachmentRegistrations.current.get(draft.clientId);
+    if (pending) return pending;
+    const registration = agentAttachmentStore.register(draft.file, { agentSessionId: id }).then((ref) => {
+      composerAttachmentRefs.current.set(draft.clientId, ref.id);
+      return ref.id;
+    }).finally(() => { composerAttachmentRegistrations.current.delete(draft.clientId); });
+    composerAttachmentRegistrations.current.set(draft.clientId, registration);
+    return registration;
+  }, []);
   const attachmentSessionSaves = useRef(new Map<string, Promise<AgentSession>>());
   const hydratedAttachmentSessions = useRef(new Set<string>());
   useEffect(() => {
@@ -227,14 +241,12 @@ export function AgentWorkspace() {
     attachmentPersistence.current = attachmentPersistence.current.then(async () => {
       for (const [id, drafts] of entries) {
         const refs = await Promise.all(drafts.map(async (draft) => {
-          const attachmentId = draft.attachmentId ?? composerAttachmentRefs.current.get(draft.clientId) ?? (await agentAttachmentStore.register(draft.file, { agentSessionId: id })).id;
-          composerAttachmentRefs.current.set(draft.clientId, attachmentId);
-          return attachmentId;
+          return ensureComposerAttachment(draft, id);
         }));
         await agentImportRepository.setMeta(`composer-attachments:${id}`, refs);
       }
     }).catch((error) => { notify({ type: "error", title: "附件暂存失败", message: error instanceof Error ? error.message : "请重新选择文件。" }); });
-  }, [attachmentsBySession]);
+  }, [attachmentsBySession, ensureComposerAttachment]);
   const intakeProjectionResult = ProfileIntakeReviewProjectionSchema.safeParse(session.taskState?.knownSlots.profileIntakeReviewProjection);
   const intakeProjection = intakeProjectionResult.success ? intakeProjectionResult.data : undefined;
   const intakeCandidates = intakeProjection?.candidates
@@ -392,26 +404,40 @@ export function AgentWorkspace() {
     const attachmentSession = await attachmentSessionSaves.current.get(session.id);
     const liveSession = host.state.getSnapshot().activeSession;
     const submitSession = liveSession?.id === session.id ? liveSession : attachmentSession ?? session;
+    const reviewAction = pendingImportReviewAction(submitSession.taskState);
+    if (!input.attachments.length && reviewAction && /^(?:确认导入|确认核对)[。！!]?$/u.test(input.text.trim())) {
+      try {
+        await host.state.dispatch({ type: "ui_control", action: reviewAction }, { session: submitSession, pageContext: pageContext(submitSession) });
+        setSessionDraft("");
+      } catch (error) {
+        notify({ type: "error", title: "未能打开导入核对", message: error instanceof Error ? error.message : "请重新打开核对界面。" });
+      }
+      return;
+    }
     window.localStorage.setItem(ACTIVE_SESSION_KEY, submitSession.id);
-    setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "registering" as const, errorCode: undefined })));
+    setSessionAttachments((current) => current.map((attachment) => input.attachments.some((sent) => sent.clientId === attachment.clientId)
+      ? { ...attachment, status: "registering" as const, errorCode: undefined }
+      : attachment));
     // Clear the controlled composer immediately after the submit event. Host
     // execution may continue streaming for a while; the sent instruction must
     // not remain visually editable during that period.
     setSessionDraft("");
     const registeredAttachments: AgentAttachmentRef[] = [];
     try {
+      // Finish any in-flight staging write before looking up its attachment ID.
+      // Otherwise a quick send can register the same file concurrently.
+      if (input.attachments.length) await attachmentPersistence.current;
+      const submitRuntimeStatus = host.runtimeStatus.getSnapshot();
       const hermesAttachmentRequested = input.attachments.length > 0
-        && runtimeStatus.preferredRuntime === "hermes";
-      if (hermesAttachmentRequested && (runtimeStatus.status !== "ready" || !runtimeStatus.health || !isRoadshowReady(runtimeStatus.health))) {
+        && submitRuntimeStatus.preferredRuntime === "hermes";
+      if (hermesAttachmentRequested && !attachmentRuntimeReady(submitRuntimeStatus)) {
         throw Object.assign(new Error("Hermes 尚未准备好接收附件。"), { code: "hermes_attachment_runtime_not_ready" });
       }
       const hermesAttachmentTurn = hermesAttachmentRequested;
       if (hermesAttachmentTurn) {
         for (const attachment of input.attachments) {
-          const attachmentId = attachment.attachmentId ?? composerAttachmentRefs.current.get(attachment.clientId);
-          registeredAttachments.push(attachmentId
-            ? (await agentAttachmentStore.restore(attachmentId, submitSession.id)).ref
-            : await agentAttachmentStore.register(attachment.file, { agentSessionId: submitSession.id }));
+          const attachmentId = await ensureComposerAttachment(attachment, submitSession.id);
+          registeredAttachments.push((await agentAttachmentStore.restore(attachmentId, submitSession.id)).ref);
         }
         if (readResumeImportSemanticPreference() === "unset" && registeredAttachments.some((attachment) => attachment.mimeType !== "application/json")) {
           setPendingHermesAttachmentTurn({ sessionId: submitSession.id, text: input.text, attachments: registeredAttachments });
@@ -477,15 +503,19 @@ export function AgentWorkspace() {
       persistSessionComposerDrafts(restoredDrafts);
       setAttachmentsBySession((current) => {
         const retained = current[submitSession.id] ?? [];
-        return { ...current, [submitSession.id]: [...input.attachments.filter((sent) => !retained.some((attachment) => attachment.clientId === sent.clientId)).map((attachment) => ({ ...attachment, status: "failed" as const, errorCode })), ...retained] };
+        const sentIds = new Set(input.attachments.map((attachment) => attachment.clientId));
+        const failed = retained.map((attachment) => sentIds.has(attachment.clientId)
+          ? { ...attachment, status: "failed" as const, errorCode }
+          : attachment);
+        return { ...current, [submitSession.id]: [...input.attachments.filter((sent) => !retained.some((attachment) => attachment.clientId === sent.clientId)).map((attachment) => ({ ...attachment, status: "failed" as const, errorCode })), ...failed] };
       });
       notify({
         type: "error",
         title: input.attachments.length ? "附件发送失败" : "消息发送失败",
-        message: input.attachments.length ? "附件仍保留在编辑区，可以重试或移除。" : "消息仍保留在编辑区，可以重试。"
+        message: input.attachments.length ? `${attachmentFailureMessage(errorCode)}附件仍保留在编辑区，可以重试或移除。` : "消息仍保留在编辑区，可以重试。"
       });
     }
-  }, [host, pageContext, recoveryReady, runtimeStatus.health, runtimeStatus.preferredRuntime, runtimeStatus.status, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
+  }, [ensureComposerAttachment, host, pageContext, recoveryReady, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
 
   const handleBeforeContextSelect = useCallback(async (next: ActiveCareerContext) => {
     if (!taskHasUsedAssetsOrWrites) {
@@ -941,6 +971,7 @@ export function AgentWorkspace() {
       && (!binding || binding.sessionId === session.id && binding.branchId === session.activeBranchId
         && binding.jobId === selected?.jobId && binding.resumeBranchId === selected?.resumeId && binding.revisionId === selected?.revisionId);
   });
+  const importReviewAction = pendingImportReviewAction(session.taskState);
   const showZeroState = session.messages.length === 0 && !running && !session.taskState?.knownSlots.preciseResumeEdit;
   const intakeSession = session.taskState?.knownSlots.intakeSession;
   const hasAutosavedIntake = Boolean(
@@ -1471,7 +1502,12 @@ export function AgentWorkspace() {
                    );
                    if (next) setSession(next);
                  })()}
-              />
+              >
+                {importReviewAction ? <div className="profile-intake-inline-review" role="region" aria-label="待核对的导入内容">
+                  <span>解析内容已准备好，请先核对，再确认导入。</span>
+                  <div className="action-row"><button className="secondary-button compact" type="button" disabled={liveHermesRun} onClick={() => dispatchUi(importReviewAction)}>核对导入内容</button></div>
+                </div> : null}
+              </AgentConversationTimeline>
             </>
           )}
           <span hidden data-testid="agent-recovery-state" data-state={recoveryState} data-session-id={recoveryReady ? session.id : undefined}
@@ -1712,6 +1748,37 @@ export function AgentWorkspace() {
     agentAttachmentStore.releaseMany(pending.attachments.map((attachment) => attachment.id));
     setAttachmentsBySession((current) => ({ ...current, [pending.sessionId]: restored }));
     setPendingHermesAttachmentTurn(undefined);
+  }
+}
+
+export function pendingImportReviewAction(task: AgentTaskState | undefined): Extract<AgentUiAction, { type: "open_import_review" }> | undefined {
+  const checkpoint = task?.knownSlots.facadeCheckpoint;
+  const hasCheckpoint = Boolean(checkpoint && typeof checkpoint === "object" && !Array.isArray(checkpoint)
+    && (checkpoint as Record<string, unknown>).kind === "resume_import_review");
+  const importId = task?.knownSlots.importId;
+  if (task?.workflowId !== "resume_import" || (task.stage !== "import_review" && !hasCheckpoint)
+    || ["completed", "cancelled", "failed"].includes(task.completionStatus) || typeof importId !== "string" || !importId) return undefined;
+  const target = task.knownSlots.importTarget;
+  const targetMode = (target && typeof target === "object" && !Array.isArray(target)
+    && (target as Record<string, unknown>).mode === "new") || task.knownSlots.importTargetIntent === "new" ? "new" : "existing";
+  return { type: "open_import_review", importId, targetMode };
+}
+
+export function attachmentRuntimeReady(status: import("@/agent/runtime/runtimeStatus").RuntimeStatusSnapshot) {
+  // The supervisor owns the current readiness projection when connected. Its
+  // later updates do not refresh the independent runtime health snapshot.
+  if (status.supervisorOwned) return status.status === "ready" && status.supervisorSnapshot?.runReady === true;
+  return status.status === "ready" && Boolean(status.health && isRoadshowReady(status.health));
+}
+
+export function attachmentFailureMessage(code: string) {
+  switch (code) {
+    case "hermes_attachment_runtime_not_ready": return "AI 服务尚未准备好接收附件。";
+    case "agent_attachment_empty": return "附件为空。";
+    case "agent_attachment_too_large": return "附件超过 8 MB。";
+    case "agent_attachment_lost": return "附件内容已失效，请重新选择文件。";
+    case "agent_attachment_session_mismatch": return "附件不属于当前对话，请重新选择文件。";
+    default: return `处理失败（${code}）。`;
   }
 }
 

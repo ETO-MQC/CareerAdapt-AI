@@ -57,3 +57,13 @@ it("rejects a checkpoint with injected facts at the HTTP boundary", async () => 
   expect(response.status).toBe(400);
   expect(mock).not.toHaveBeenCalled();
 });
+
+
+it("carries the pending import review boundary without serializing document contents", () => {
+  const task = AgentTaskStateSchema.parse({ rootGoal: "import_resume", workflowId: "resume_import", stage: "resolve_target",
+    completionStatus: "waiting_for_user", updatedAt: "2026-11-20T00:00:00.000Z",
+    knownSlots: { importId: "draft-1", facadeCheckpoint: { kind: "resume_import_review", privateDocument: "MUST_NOT_SEND" } } });
+  expect(careerSessionCheckpoint(task)?.taskSummary).toContain("awaiting human review");
+  expect(JSON.stringify(careerSessionCheckpoint(task))).not.toContain("MUST_NOT_SEND");
+  expect(careerSessionCheckpoint({ ...task, completionStatus: "completed" })?.taskSummary).not.toContain("awaiting human review");
+});

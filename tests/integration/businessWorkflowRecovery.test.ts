@@ -112,3 +112,20 @@ it("accepts only a known pending bridge receipt after model completion and corre
   await host.applyRuntimeEvent({ ...event, type: "text_delta", delta: "旧的迟到叙述" }, shell.assistantMessageId);
   expect(host.getSnapshot().activeSession).toEqual(before);
 });
+
+
+it("projects a direct Hermes resume import into a durable review task and artifact", async () => {
+  const { host, persistence, repository, shell, event, initial } = await setup();
+  // A concurrent session writer advances the durable revision after the Host snapshot.
+  await persistence.save(shell.session);
+  await persistence.save(shell.session);
+  await host.applyRuntimeEvent({ ...event, type: "tool_call_completed", toolName: "career.workflow.resume_import", operationId: "import-op",
+    data: { result: { ok: true, data: { status: "waiting_for_user", workflowStage: "review_import",
+      workflowCheckpoint: { kind: "resume_import_review", attachmentId: "attachment-1",
+        import: { importId: "draft-1", expectedDraftRevision: 0, fileName: "resume.pdf" } } } } } }, shell.assistantMessageId);
+  const saved = await persistence.get(initial.id);
+  expect(saved?.taskState).toMatchObject({ workflowId: "resume_import", stage: "resolve_target", completionStatus: "waiting_for_user", knownSlots: { importId: "draft-1", facadeCheckpoint: { kind: "resume_import_review" } } });
+  expect(saved?.artifactRefs).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "resume_import_review", entityId: "draft-1" })]));
+  expect(await repository.listProfiles()).toHaveLength(0);
+  expect(await repository.listResumeBranches()).toHaveLength(0);
+});

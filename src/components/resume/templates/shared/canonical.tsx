@@ -58,6 +58,7 @@ function RenderPresentationItems({ items, context }: { items: ResumePresentation
 }
 
 function RenderSkillPresentation({ items, context }: { items: ResumePresentationItem[]; context?: TemplateRenderContext }) {
+  const inlineSkills = context?.presentationConfig?.precision?.skillLayout ? context.presentationConfig.precision.skillLayout === "inline" : Boolean(context?.referenceCompact);
   const groups: Array<[string, ResumePresentationItem[]]> = [];
   for (const item of items) {
     const label = compactSkillCategory(item.groupLabel ?? "");
@@ -71,7 +72,7 @@ function RenderSkillPresentation({ items, context }: { items: ResumePresentation
         {label ? <strong>{label}</strong> : null}
         <div className="resume-skill-values">
           {groupItems.map((item) => (
-            <div {...presentationItemAttrs(item, context, "resume-skill-item")} data-pagination-unit="content" key={item.id}>
+            <div {...presentationItemAttrs(item, context, "resume-skill-item")} data-pagination-unit="content" data-pagination-inline={inlineSkills && !item.customRows.length ? "true" : undefined} key={item.id}>
               <span className="resume-skill-heading">
                 <strong className="resume-skill-name"><FormattedText text={item.primaryTitle ?? ""} itemId={item.sourceItemId ?? item.id} fields={["name", "language"]} context={context}/></strong>
                 {item.secondaryTitle ? <span className="resume-skill-level">（<FormattedText text={item.secondaryTitle} itemId={item.sourceItemId ?? item.id} fields={["level"]} context={context}/>）</span> : null}
@@ -89,8 +90,8 @@ function RenderSkillPresentation({ items, context }: { items: ResumePresentation
 function RenderLanguagePresentation({ items, context }: { items: ResumePresentationItem[]; context?: TemplateRenderContext }) {
   return <div className="resume-language-list">
     {items.map((item, index) => (
-      <div {...presentationItemAttrs(item, context, "resume-language-row")} data-pagination-unit="content" key={item.id}>
-        {index > 0 ? "，" : ""}{[item.primaryTitle, ...(item.secondaryTitle?.split(" · ") ?? []), item.description].filter(Boolean).map((text, at) => <FormattedText key={at} text={text!} itemId={item.sourceItemId ?? item.id} fields={["language", "level", "description", "testName", "score"]} context={context}/>)}
+      <div {...presentationItemAttrs(item, context, "resume-language-row")} data-pagination-unit="content" data-pagination-inline={context?.referenceCompact && !item.customRows.length ? "true" : undefined} key={item.id}>
+        {index > 0 ? "，" : ""}{[item.primaryTitle, ...(item.secondaryTitle?.split(" · ") ?? []), item.description].filter(Boolean).map((text, at) => <span key={at}>{context?.referenceCompact && at > 0 ? " · " : ""}<FormattedText text={text!} itemId={item.sourceItemId ?? item.id} fields={["language", "level", "description", "testName", "score"]} context={context}/></span>)}
         <RenderCustomRows rows={item.customRows} />
       </div>
     ))}
@@ -116,8 +117,15 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
   const inlineDepartment = ["work", "internship", "campus", "volunteer"].includes(item.sectionType)
     && (placement === "inline" || placement === "auto" && context?.inlineDepartment);
   const secondaryTitle = inlineDepartment ? joinPresentationValues([...item.secondaryMeta, item.secondaryTitle]) : item.secondaryTitle;
+  const educationRows = item.sectionType === "education";
+  const educationMeta = educationRows ? item.customRows.filter((row) => row.label === "GPA" || row.label === "专业排名") : [];
+  const educationCourses = educationRows ? item.customRows.filter((row) => row.label === "核心课程") : [];
+  const otherRows = educationRows ? item.customRows.filter((row) => row.label !== "GPA" && row.label !== "专业排名" && row.label !== "核心课程") : item.customRows;
+  const honorCount = educationRows ? Math.min(item.educationHonorCount ?? 0, item.highlights.length) : 0;
+  const honors = item.highlights.slice(0, honorCount).filter(value => !fieldAppearanceFor(context, item.sourceItemId ?? item.id, ["honors"], value).some(entry => entry.hidden));
+  const inlineSkills = context?.presentationConfig?.precision?.skillLayout ? context.presentationConfig.precision.skillLayout === "inline" : Boolean(context?.referenceCompact);
   return (
-    <article {...presentationItemAttrs(item, context, "resume-template-item resume-canonical-item")}>
+    <article {...presentationItemAttrs(item, context, "resume-template-item resume-canonical-item")} data-pagination-inline={inlineSkills && item.sectionType === "certificates" && !item.description && !item.tertiaryTitle && !item.location && !item.inlineMeta.length && !item.secondaryMeta.length && !item.highlights.length && !item.links.length && !item.customRows.length ? "true" : undefined}>
       {(item.primaryTitle || item.secondaryTitle || item.dateRange) ? (
         <div className={`resume-presentation-heading resume-presentation-heading-${context?.presentationConfig?.itemHeaderMiddleAlignment ?? "balanced"}`} data-pagination-unit="heading">
           {item.primaryTitle ? <h3>{format(item.primaryTitle, item.sectionType === "education" ? ["school"] : ["work", "internship", "campus", "volunteer"].includes(item.sectionType) ? ["organization"] : ["title", "name", "institution"])}</h3> : <span />}
@@ -127,20 +135,23 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
           {entryStyle === "stacked" && item.location ? <span className="resume-entry-location">{format(item.location, ["location"])}</span> : null}
         </div>
       ) : null}
+      <RenderEducationRows rows={educationMeta} paginationKey="custom-rows:education-meta" />
+      {honors.length ? <ul className="resume-presentation-highlights"><li data-pagination-unit="education-honors"><strong>荣誉奖项：</strong>{honors.map((value, index) => <span key={`${index}-${value}`}>{index > 0 ? "；" : ""}<FormattedText text={value} itemId={item.sourceItemId ?? item.id} fields={["honors"]} context={context}/></span>)}</li></ul> : null}
+      <RenderEducationRows rows={educationCourses} paginationKey="custom-rows:education-courses" />
       {item.tertiaryTitle || item.location && !headerLocation ? <p className="resume-presentation-subtitle" data-pagination-unit="subtitle">{[headerLocation ? undefined : item.location, item.tertiaryTitle].filter(Boolean).map((value, index) => <span key={index}>{index ? " · " : ""}{format(value!, ["location", "department", "institution", "level", "publisher", "office"])}</span>)}</p> : null}
       {item.inlineMeta.length ? <p className="resume-presentation-meta" data-pagination-unit="inline-meta"><RenderMetaValues values={item.inlineMeta} context={context} itemId={item.sourceItemId ?? item.id} fields={["organization", "tools", "authors", "inventors"]} /></p> : null}
       {!inlineDepartment ? item.secondaryMeta.map((meta, index) => <p className="resume-presentation-secondary" data-pagination-unit={`secondary-meta:${index}`} key={meta}>{format(meta, ["department", "background"])}</p>) : null}
       {item.description ? <p className="resume-presentation-description" data-pagination-unit="description">{format(item.description, ["description", "background"])}</p> : null}
-      {item.highlights.length ? <RenderHighlights highlights={item.highlights.map((highlight, index) => ({ value: highlight, key: `highlight:${index}` }))} itemId={item.sourceItemId ?? item.id} fields={["highlights", "outcomes", "honors", "methods"]} context={context} /> : null}
+      {item.highlights.length > honorCount ? <RenderHighlights highlights={item.highlights.slice(honorCount).map((highlight, index) => ({ value: highlight, key: `highlight:${index + honorCount}` }))} itemId={item.sourceItemId ?? item.id} fields={["highlights", "outcomes", "honors", "methods"]} context={context} /> : null}
       {unlistedLinks.length ? <p className="resume-presentation-links" data-pagination-unit="links"><RenderMetaValues values={unlistedLinks} context={context} itemId={item.sourceItemId ?? item.id} fields={["url"]} /></p> : null}
-      <RenderCustomRows rows={item.customRows} context={context} />
+      <RenderCustomRows rows={otherRows} context={context} />
     </article>
   );
 }
 
 function RenderHighlights({ highlights: source, context, itemId, fields = [] }: { highlights: Array<{ value: string; key: string }>; context?: TemplateRenderContext; itemId?: string; fields?: string[] }) {
   const highlights = source.filter(h => !itemId || !fieldAppearanceFor(context, itemId, fields, h.value).some(entry => entry.hidden));
-  const text = (value: string) => itemId ? <FormattedText text={value} itemId={itemId} fields={fields} context={context}/> : value;
+  const text = (value: string) => itemId ? <FormattedText text={value} itemId={itemId} fields={fields} context={context} emphasizeLead={context?.referenceCompact}/> : value;
   const bullet = context?.presentationConfig?.precision?.bulletStyle;
   const listStyle = bullet === "decimal" ? "numbered" : bullet === "none" ? "none" : bullet ? "bullet" : context?.presentationConfig?.highlightListStyle ?? "bullet";
   if (!highlights.length) return null;
@@ -162,6 +173,13 @@ function RenderHighlights({ highlights: source, context, itemId, fields = [] }: 
 function RenderMetaValues({ values, context, itemId, fields = [] }: { values: string[]; context?: TemplateRenderContext; itemId?: string; fields?: string[] }) {
   const render = (value: string) => itemId ? <FormattedText text={value} itemId={itemId} fields={fields} context={context}/> : value;
   return <>{values.map((value, index) => <span key={value}>{index > 0 ? " · " : ""}{isUrl(value) ? <a href={value}>{render(value)}</a> : render(value)}</span>)}</>;
+}
+
+function RenderEducationRows({ rows, paginationKey }: { rows: ResumePresentationItem["customRows"]; paginationKey: string }) {
+  if (!rows.length) return null;
+  return <ul className="resume-presentation-highlights"><li data-pagination-unit={paginationKey}>{rows.map((row, index) => <span className="resume-education-field" key={`${index}-${row.label ?? ""}-${row.value}`}>
+    {row.label ? <strong>{row.label}：</strong> : null}{row.value}
+  </span>)}</li></ul>;
 }
 
 function RenderCustomRows({ rows, context }: { rows: ResumePresentationItem["customRows"]; context?: TemplateRenderContext }) {

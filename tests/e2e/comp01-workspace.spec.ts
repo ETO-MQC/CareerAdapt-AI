@@ -97,6 +97,22 @@ test("COMP01 attachment stays session-owned on reload and removal excludes submi
 });
 
 
+test("failed attachment registration restores a retryable composer", async ({ page }) => {
+  await page.locator('input[type="file"]').setInputFiles({ name: "too-large.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(8 * 1024 * 1024 + 1) });
+  await expect(page.locator(".agent-attachment-chip")).toContainText("待发送");
+  const composer = page.getByLabel("描述你的求职任务");
+  await composer.fill("请识别这份简历");
+  await composer.press("Enter");
+  await expect(page.getByText("附件发送失败", { exact: true })).toBeVisible();
+  await expect(page.locator(".agent-attachment-chip")).toContainText("失败 ·");
+  await expect(page.locator(".agent-attachment-chip")).not.toContainText("登记中");
+  await expect(composer).toHaveValue("请识别这份简历");
+  await expect(page.getByRole("button", { name: "发送消息", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "移除附件 too-large.pdf" }).click();
+  await page.locator('input[type="file"]').setInputFiles({ name: "replacement.txt", mimeType: "text/plain", buffer: Buffer.from("合成简历内容") });
+  await expect(page.locator(".agent-attachment-chip")).toContainText("待发送");
+});
+
 test("COMP01 edited message keeps the old branch readable without another Run", async ({ page }) => {
   let runStarts = 0;
   page.on("request", (request) => { if (request.url().endsWith("/api/agent/runtime/hermes") && request.postDataJSON()?.action === "run_start") runStarts++; });

@@ -27,6 +27,7 @@ export type ResumePaginationBlockMeasurement = {
   bottom: number;
   height: number;
   horizontalOverflow?: boolean;
+  inlineRow?: boolean;
   units?: ResumePaginationUnitMeasurement[];
 };
 
@@ -42,6 +43,8 @@ export type ResumePaginationSectionMeasurement = {
 export type ResumePaginationMeasurement = {
   scrollHeight: number;
   clientHeight: number;
+  paddingTop?: number;
+  paddingBottom?: number;
   sections: ResumePaginationSectionMeasurement[];
   blocks: ResumePaginationBlockMeasurement[];
 };
@@ -68,6 +71,7 @@ export type PaginationUnit = {
   unitKeys: string[];
   includeSectionTitle: boolean;
   forcedBreakBefore: boolean;
+  inlineRow?: boolean;
 };
 
 const PAGE_NEAR_LIMIT_PX = 36;
@@ -75,6 +79,7 @@ const SECTION_TYPES: AnySectionType[] = [...defaultResumeRenderSectionOrder, ...
 
 export function collectResumePaginationMeasurement(pageElement: HTMLElement): ResumePaginationMeasurement {
   const pageRect = pageElement.getBoundingClientRect();
+  const pageStyle = getComputedStyle(pageElement);
   const sectionElements = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-render-section]"));
   const blockElements = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-pagination-item-id]"));
   const sections = sectionElements.flatMap((element) => {
@@ -114,6 +119,7 @@ export function collectResumePaginationMeasurement(pageElement: HTMLElement): Re
       bottom: rect.bottom - pageRect.top,
       height: rect.height,
       horizontalOverflow: element.scrollWidth > element.clientWidth + 2,
+      inlineRow: element.dataset.paginationInline === "true",
       units: unitElements.flatMap((unit) => {
         const key = unit.dataset.paginationUnit;
         if (!key) return [];
@@ -131,8 +137,10 @@ export function collectResumePaginationMeasurement(pageElement: HTMLElement): Re
   return {
     scrollHeight: pageElement.scrollHeight,
     clientHeight: pageElement.clientHeight,
+    paddingTop: parseFloat(pageStyle.paddingTop),
+    paddingBottom: parseFloat(pageStyle.paddingBottom),
     sections: sections.sort((left, right) => left.top - right.top || SECTION_TYPES.indexOf(left.sectionType) - SECTION_TYPES.indexOf(right.sectionType)),
-    blocks: blocks.sort((left, right) => left.top - right.top || left.sourceItemId.localeCompare(right.sourceItemId))
+    blocks: blocks.sort((left, right) => left.top - right.top)
   };
 }
 
@@ -143,6 +151,7 @@ export function createResumePaginationPlan(input: {
   const pagePolicy = input.paginationConfig.pagePolicy;
   const requestedMaxPages = 4 as const;
   const clientHeight = Math.max(1, input.measurement.clientHeight);
+  const contentHeight = Math.max(1, clientHeight - (input.measurement.paddingTop ?? 0) - (input.measurement.paddingBottom ?? 0));
   const forcedBreakBeforeSections = sanitizeForcedBreaks(
     input.paginationConfig.pageBreakBeforeSections,
     input.measurement.sections.filter((section) => section.blockIds.length > 0).map((section) => section.sectionType)
@@ -151,7 +160,7 @@ export function createResumePaginationPlan(input: {
   const overflowBlockIds: string[] = [];
   const oversizedBlockIds: string[] = [];
   const units = createPaginationUnits(input.measurement, forcedBreakBeforeSections);
-  const assignments = packPaginationUnits(units, clientHeight);
+  const assignments = packPaginationUnits(units, contentHeight);
   for (const [unitIndex, pageIndex] of assignments.entries()) {
     const unit = units[unitIndex];
     const block = input.measurement.blocks.find((candidate) => candidate.sourceItemId === unit.itemId)!;
@@ -165,7 +174,7 @@ export function createResumePaginationPlan(input: {
       includeSectionTitle: unit.includeSectionTitle,
       unitKeys: unit.unitKeys
     });
-    if (unit.height > clientHeight) {
+    if (unit.height > contentHeight) {
       oversizedBlockIds.push(unit.itemId);
       overflowBlockIds.push(unit.itemId);
     }
@@ -181,7 +190,7 @@ export function createResumePaginationPlan(input: {
   });
   for (const page of usedPages) {
     const usedHeight = units.reduce((total, unit, index) => assignments[index] === page.pageNumber - 1 ? total + unit.height : total, 0);
-    page.utilization = { usedHeight, availableHeight: clientHeight, ratio: usedHeight / clientHeight };
+    page.utilization = { usedHeight, availableHeight: contentHeight, ratio: usedHeight / contentHeight };
   }
   const issues: NonNullable<ResumePaginationPlan["issues"]> = [];
   if (oversizedBlockIds.length) issues.push("oversized_content");
@@ -364,6 +373,11 @@ function createPage(pageNumber: number): MutablePaginationPage {
 }
 
 function paginationUnitChunks(units: ResumePaginationUnitMeasurement[]) {
+  if (units.some((unit) => unit.key === "education-honors" || unit.key.startsWith("custom-rows:education-"))) {
+    const headingIndex = units.findIndex((unit) => unit.key === "heading");
+    const prefixEnd = headingIndex >= 0 ? Math.min(units.length, headingIndex + 2) : 1;
+    return [units.slice(0, prefixEnd), ...units.slice(prefixEnd).map((unit) => [unit])];
+  }
   const highlightIndex = units.findIndex((unit) => unit.key.startsWith("highlight:"));
   const headingIndex = units.findIndex((unit) => unit.key === "heading");
   const prefixEnd = highlightIndex >= 0 ? highlightIndex : Math.max(0, headingIndex);
@@ -377,7 +391,7 @@ export function createPaginationUnits(
   forcedBreakBeforeSections: AnySectionType[] = []
 ): PaginationUnit[] {
   const result: PaginationUnit[] = [];
-  let previousBottom = 0;
+  let previousBottom = measurement.paddingTop ?? 0;
   let sourceOrder = 0;
   for (const section of measurement.sections) {
     const blocks = measurement.blocks.filter((block) => block.sectionType === section.sectionType
@@ -408,16 +422,17 @@ export function createPaginationUnits(
           kind,
           top,
           bottom,
-          height: Math.max(0, bottom - top) + leadingGap,
+          height: Math.max(0, bottom - (block.inlineRow ? Math.max(top, previousBottom) : top)) + leadingGap,
           keepWithNext: heading,
           breakBeforeAllowed: result.length > 0,
           breakAfterAllowed: true,
           sourceOrder: sourceOrder++,
           unitKeys,
           includeSectionTitle: blockIndex === 0 && chunkIndex === 0,
-          forcedBreakBefore: blockIndex === 0 && chunkIndex === 0 && forcedBreakBeforeSections.includes(section.sectionType)
+          forcedBreakBefore: blockIndex === 0 && chunkIndex === 0 && forcedBreakBeforeSections.includes(section.sectionType),
+          inlineRow: block.inlineRow
         });
-        previousBottom = bottom;
+        previousBottom = block.inlineRow ? Math.max(previousBottom, bottom) : bottom;
       }
     }
   }
@@ -429,24 +444,22 @@ function packPaginationUnits(units: PaginationUnit[], availableHeight: number) {
   const assignments: number[] = [];
   let page = 0;
   let used = 0;
-  for (const unit of units) {
-    // The height sum is normally sufficient, but it can under-estimate a
-    // real DOM layout when the measured gaps/padding are not represented by
-    // a pagination unit. Never leave a later unit on a page when its measured
-    // bottom already crosses that page shell; otherwise the preview's
-    // overflow:hidden shell clips it while PDF Chromium moves it to page 2.
-    const measuredBottomCrossesPage = used > 0
-      && unit.bottom > (page + 1) * availableHeight + 2;
+  for (let index = 0; index < units.length;) {
+    const unit = units[index];
+    let end = index + 1;
+    while (unit.inlineRow && end < units.length && units[end].inlineRow
+      && units[end].sectionId === unit.sectionId && Math.abs(units[end].top - unit.top) < 1) end += 1;
+    const row = units.slice(index, end);
+    const rowHeight = row.reduce((sum, item) => sum + item.height, 0);
     if (
       (unit.forcedBreakBefore && used > 0)
-      || (used > 0 && used + unit.height > availableHeight)
-      || measuredBottomCrossesPage
+      || (used > 0 && used + rowHeight > availableHeight)
     ) {
       page += 1;
       used = 0;
     }
-    assignments.push(page);
-    used += unit.height;
+    for (const item of row) { assignments.push(page); used += item.height; }
+    index = end;
   }
   return assignments;
 }
@@ -483,10 +496,16 @@ function applyPresentationFragment(
     inlineMeta: keys.has("inline-meta") ? item.inlineMeta : [],
     secondaryMeta: item.secondaryMeta.filter((_, index) => keys.has(`secondary-meta:${index}`)),
     description: keys.has("description") ? item.description : undefined,
-    highlights: item.highlights.filter((_, index) => highlightIndexes.has(index)),
+    highlights: item.highlights.filter((_, index) => index < (item.educationHonorCount ?? 0) ? keys.has("education-honors") : highlightIndexes.has(index)),
+    ...(item.educationHonorCount === undefined ? {} : { educationHonorCount: keys.has("education-honors") ? item.educationHonorCount : 0 }),
     links: keys.has("links") ? item.links : [],
     customRows: [
-      ...(keys.has("custom-rows") ? normalCustomRows : []),
+      ...normalCustomRows.filter((row) => {
+        if (item.sectionType !== "education") return keys.has("custom-rows");
+        if (row.label === "GPA" || row.label === "专业排名") return keys.has("custom-rows:education-meta") || keys.has("custom-rows");
+        if (row.label === "核心课程") return keys.has("custom-rows:education-courses") || keys.has("custom-rows");
+        return keys.has("custom-rows");
+      }),
       ...bulletCustomRows.filter((_, index) => customBulletIndexes.has(index))
     ]
   };

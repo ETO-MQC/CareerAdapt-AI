@@ -300,6 +300,18 @@ function chooseResponse({ mode, messages, tools }) {
   if (mode === "career-agent-eval") {
     return chooseCareerAgentEvalResponse({ messages, tools, lastToolResult });
   }
+  if (mode === "integration" && /P512-MEMORY-SECOND/u.test(latestUserText(messages))) {
+    const hasFirst = messages.some(message => message?.role === "user" && typeof message.content === "string" && message.content.includes("P512-MEMORY-FIRST"));
+    return { content: hasFirst ? "上一轮的测试代号是松树。" : "没有收到上一轮。" };
+  }
+  if (mode === "integration" && /P512-MEMORY-FIRST/u.test(latestUserText(messages))) return { content: "已记住测试代号松树。" };
+  if (mode === "integration" && /P512-RESUME-REVIEW/u.test(latestUserText(messages))) {
+    if (lastToolResult) return { content: "简历已解析，请核对导入内容。" };
+    const name = findToolName(tools, "career.workflow.resume_import");
+    const attachmentId = JSON.stringify(messages).match(/agent-attachment-[a-f0-9-]+/u)?.[0];
+    if (name && attachmentId) return { toolCall: { name, arguments: JSON.stringify({ attachmentId }) } };
+    return { content: "Resume fixture did not receive an attachment reference." };
+  }
   if (mode === "integration" && /P512-MATERIAL|P51-C02-MATERIAL/u.test(latestUserText(messages))) {
     const name = findToolName(tools, "career.workflow.material_intake");
     const artifact = materialArtifact(lastToolResult?.content);

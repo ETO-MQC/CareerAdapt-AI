@@ -22,6 +22,7 @@ export const ResumePresentationItemSchema = z.object({
   secondaryMeta: z.array(z.string().min(1)).default([]),
   description: z.string().min(1).optional(),
   highlights: z.array(z.string().min(1)).default([]),
+  educationHonorCount: z.number().int().min(0).optional(),
   links: z.array(z.string().url()).default([]),
   customRows: z.array(ResumePresentationCustomRowSchema).default([]),
   warnings: z.array(z.string().min(1)).default([])

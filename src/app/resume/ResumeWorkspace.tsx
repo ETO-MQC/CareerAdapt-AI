@@ -603,7 +603,7 @@ export function ResumeWorkspace() {
     presentationConfig?.presentationRevision,
     presentationConfig?.pagination.pagePolicy,
     presentationConfig?.pagination.pageBreakBeforeSections.join("|")
-  ]);
+  ], canvasZoom);
   useEffect(() => {
     if (!renderModel || !pagination.plan) {
       const clearFrame = window.requestAnimationFrame(() => setRenderCoverageReport(undefined));

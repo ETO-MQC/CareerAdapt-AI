@@ -2746,8 +2746,33 @@ export class AgentHostStore {
   }
 
   private async applyRuntimeEventNow(event: AgentRuntimeEvent, assistantMessageId: string) {
-    const current = this.snapshot.activeSession;
+    let current = this.snapshot.activeSession;
     if (!current || current.id !== event.sessionId) return undefined;
+    // A bridge receipt may arrive after another writer advanced the same
+    // running session. Rebase onto that durable revision before applying the
+    // import checkpoint; the repository otherwise correctly rejects it as stale.
+    if (event.type === "tool_call_completed"
+      && (event.toolName === "career.workflow.resume_import" || event.toolName === "career.workflow.material_intake")
+      && typeof this.dependencies.persistence.get === "function") {
+      const stored = await this.dependencies.persistence.get(event.sessionId);
+      if (stored && stored.sessionRevision > current.sessionRevision
+        && stored.activeTurn?.id === event.turnId && current.activeTurn?.id === event.turnId
+        && stored.activeTurn.status === "running" && current.activeTurn.status === "running"
+        && stored.activeBranchId === current.activeBranchId
+        && stored.hermesRun?.runId === current.hermesRun?.runId
+        && !["completed", "failed", "cancelled"].includes(stored.hermesRun?.status ?? "")) {
+        const live = new Map(current.messages.map((message) => [message.id, message]));
+        const storedIds = new Set(stored.messages.map((message) => message.id));
+        current = { ...stored, messages: [
+          ...stored.messages.map((message) => {
+            const candidate = live.get(message.id);
+            return candidate?.turnId === event.turnId && candidate.role === "assistant"
+              && candidate.content.startsWith(message.content) ? candidate : message;
+          }),
+          ...current.messages.filter((message) => !storedIds.has(message.id))
+        ] };
+      }
+    }
     const assistant = current.messages.find((message) => message.id === assistantMessageId);
     // Runtime events are quarantined unless they belong to the visible
     // assistant shell for the same logical turn. This prevents a late Hermes
@@ -13081,7 +13106,8 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     }
     session = projectTaskStateIntoSession(session, task);
   }
-  if (toolName === "career.workflow.material_intake" && objectValue(objectValue(value).workflowCheckpoint).kind === "resume_import_review" && session.taskState?.workflowId !== "resume_import") {
+  if ((toolName === "career.workflow.material_intake" || toolName === "career.workflow.resume_import")
+    && objectValue(objectValue(value).workflowCheckpoint).kind === "resume_import_review" && session.taskState?.workflowId !== "resume_import") {
     const reducer = new AgentTaskStateReducer();
     const task = reducer.reduce(reducer.create(session, "import_resume", { workflowId: "resume_import", step: "import_review" }), {
       type: "new_root_task", goal: "import_resume", workflowId: "resume_import", stage: "import_review"

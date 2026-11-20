@@ -29,6 +29,12 @@ export function careerSessionCheckpoint(task?: AgentTaskState, preferences?: Age
 /** Business state for reasoning; entity identifiers stay in the tool binding. */
 export function careerTaskSummary(task: AgentTaskState): string {
   const next = task.knownSlots.nextAction as { kind?: unknown } | undefined;
+  const checkpoint = task.knownSlots.facadeCheckpoint;
+  const pendingImportReview = task.workflowId === "resume_import"
+    && !["completed", "cancelled", "failed"].includes(task.completionStatus)
+    && typeof task.knownSlots.importId === "string"
+    && (task.stage === "import_review" || Boolean(checkpoint && typeof checkpoint === "object" && !Array.isArray(checkpoint)
+      && (checkpoint as Record<string, unknown>).kind === "resume_import_review"));
   return ["Current career task:",
     `- Workflow: ${task.workflowId}`,
     `- Current step: ${task.stage}`,
@@ -37,6 +43,7 @@ export function careerTaskSummary(task: AgentTaskState): string {
     `- Job: ${task.selectedEntities.jobId ? "selected" : "not selected"}`,
     `- Resume: ${task.selectedEntities.resumeId ? "selected" : "not created"}`,
     ...(next?.kind === "job_fit" ? ["- Planned next step: job-fit analysis after verified resume commit"] : []),
+    ...(pendingImportReview ? ["- An import draft is awaiting human review in the application. Ask the user to open the review; do not claim it is absent or committed or proceed as if it were confirmed."] : []),
     "- Runtime completion is not a business commit. Confirm writes and verify Repository receipts."
   ].join("\n");
 }

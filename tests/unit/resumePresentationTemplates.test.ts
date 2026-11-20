@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { resumeTemplates } from "@/components/resume/templates/templateRegistry";
 import { projectResumePresentationItem } from "@/domain/resumePresentation/projector";
-import { ResumeRenderModelSchema } from "@/domain/schemas";
+import { ResumePresentationConfigSchema, ResumeRenderModelSchema } from "@/domain/schemas";
 import { createResumeJsonV2Example } from "@/domain/resumeImport/jsonV2Adapter";
+import { createResumePaginationPlan, paginateResumeRenderModel } from "@/services/export/pagination";
 
 const FORBIDDEN_DEBUG_LABELS = [
   "学校：", "专业：", "学位/学历：", "所在地：", "开始日期：", "结束日期：", "至今：", "进行中：",
@@ -88,5 +89,68 @@ describe.each(resumeTemplates)("$id formal presentation", (template) => {
         && heading.querySelector(".resume-skill-level")
         && item.querySelector(".resume-skill-description");
     })).toBe(true);
+    const education = host.querySelector('[data-render-section="education"]')!;
+    const educationText = education.textContent!;
+    expect(educationText.indexOf("GPA")).toBeLessThan(educationText.indexOf("荣誉奖项"));
+    expect(educationText.indexOf("荣誉奖项")).toBeLessThan(educationText.indexOf("核心课程"));
+    expect(education.querySelector('[data-pagination-unit="education-honors"] strong')?.textContent).toBe("荣誉奖项：");
   });
+});
+
+it("uses the reference education structure while preserving movable section identities", () => {
+  const model = presentationFixture();
+  const template = resumeTemplates.find((entry) => entry.id === "classic-technical")!;
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(template.render(model));
+  const education = host.querySelector('[data-render-section="education"]')!;
+  const text = education.textContent!;
+  expect(text.indexOf("GPA")).toBeLessThan(text.indexOf("优秀学生"));
+  expect(text.indexOf("专业排名")).toBeLessThan(text.indexOf("优秀学生"));
+  expect(text.indexOf("优秀学生")).toBeLessThan(text.indexOf("核心课程"));
+  expect(text).toContain("3.8/4");
+  expect(text).toContain("5/120");
+  expect(text).toContain("统计建模");
+  if (model.schemaVersion !== "resume-render-v2") throw new Error("expected v2 model");
+  const ordered = [...model.structuredSections].reverse().map((section) => section.sectionId);
+  const config = ResumePresentationConfigSchema.parse({ schemaVersion: "resume-presentation-v1", branchId: "presentation-branch", templateId: "classic-technical", contentRevision: { branchRevision: 1, currentRevisionId: "revision-1" }, canonicalSectionOrder: ordered, presentationRevision: 0, updatedAt: "2026-11-20T00:00:00.000Z" });
+  const reversedModel = { ...model, structuredSections: [...model.structuredSections].reverse() };
+  host.innerHTML = renderToStaticMarkup(template.render(reversedModel, { presentationConfig: config }));
+  expect([...host.querySelectorAll<HTMLElement>("[data-render-section-id]")].map((section) => section.dataset.renderSectionId)).toEqual(ordered);
+});
+
+it("keeps education honors distinct from other highlights after duplicate removal", () => {
+  const education = createResumeJsonV2Example().sections.flatMap(section => section.items).find(item => item.sectionType === "education");
+  if (!education || education.sectionType !== "education") throw new Error("expected education");
+  const projected = projectResumePresentationItem({ ...education, honors: ["奖学金", "奖学金"], highlights: ["课程项目"] });
+  expect(projected.highlights).toEqual(["奖学金", "课程项目"]);
+  expect(projected.educationHonorCount).toBe(1);
+});
+
+it("keeps education metrics and courses exactly once when an education item crosses pages", () => {
+  const model = presentationFixture();
+  if (model.schemaVersion !== "resume-render-v2") throw new Error("expected v2 model");
+  const education = model.structuredSections.find((section) => section.sectionType === "education")!;
+  const item = education.items[0];
+  const measurement = {
+    scrollHeight: 100, clientHeight: 70,
+    sections: [{ sectionType: "education" as const, sectionId: education.sectionId, top: 0, bottom: 100, height: 100, blockIds: [item.itemId] }],
+    blocks: [{ sourceItemId: item.itemId, sectionType: "education" as const, sectionId: education.sectionId, top: 0, bottom: 100, height: 100, units: [
+      { key: "heading", top: 0, bottom: 10, height: 10 },
+      { key: "custom-rows:education-meta", top: 10, bottom: 20, height: 10 },
+      { key: "education-honors", top: 20, bottom: 30, height: 10 },
+      { key: "custom-rows:education-courses", top: 30, bottom: 75, height: 45 },
+      { key: "description", top: 75, bottom: 85, height: 10 },
+      { key: "highlight:1", top: 85, bottom: 100, height: 15 }
+    ] }]
+  };
+  const config = ResumePresentationConfigSchema.parse({ schemaVersion: "resume-presentation-v1", branchId: "presentation-branch", templateId: "classic-technical", contentRevision: { branchRevision: 1, currentRevisionId: "revision-1" }, presentationRevision: 0, updatedAt: "2026-11-20T00:00:00.000Z" });
+  const plan = createResumePaginationPlan({ measurement, paginationConfig: config.pagination });
+  const pages = paginateResumeRenderModel(model, plan);
+  expect(pages).toHaveLength(2);
+  const template = resumeTemplates.find((entry) => entry.id === "classic-technical")!;
+  const text = pages.map((page) => renderToStaticMarkup(template.render(page)));
+  expect(text[0]).toContain("GPA");
+  expect(text[0]).not.toContain("核心课程");
+  expect(text[1]).toContain("核心课程");
+  expect(text[1]).not.toContain("GPA");
 });

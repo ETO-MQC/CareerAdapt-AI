@@ -1,11 +1,12 @@
 import type { ResumeRenderModel } from "@/domain/schemas";
-import { RenderCanonicalSections, ResumeHeader } from "./shared/canonical";
+import { ResumeHeader } from "./shared/canonical";
 import { findSection, RenderSection, section } from "./shared/legacy";
 import type { TemplateRenderContext, TemplateRenderer } from "./types";
+import { renderCampusReference } from "./campusReference";
 
 export const renderClassicTechnical: TemplateRenderer = (model: ResumeRenderModel, context?: TemplateRenderContext) => {
   if (model.schemaVersion === "resume-render-v2" && model.structuredSections.length > 0) {
-    return <>{!context?.pagination?.isContinuation ? <ResumeHeader model={model} context={context} /> : null}<RenderCanonicalSections sections={model.structuredSections} context={context} /></>;
+    return renderCampusReference(model, { ...context, referenceCompact: true });
   }
   const experience = findSection(model, "experience");
   const beforeSkillsSectionIds = ["experience", "education", "projects", "campus", "awards"];
