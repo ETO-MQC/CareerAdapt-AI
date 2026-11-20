@@ -25,6 +25,8 @@ const LOG_SECRET_ENV_NAMES = [
   "API_SERVER_KEY",
   "OPENAI_API_KEY",
   "OPENROUTER_API_KEY",
+  "CAREERADAPT_MIMO_API_KEY",
+  "CAREERADAPT_DEEPSEEK_API_KEY",
   "HERMES_CUSTOM_CAREERADAPT_API_KEY"
 ];
 // Hermes can finish binding its API server before its first health response is
@@ -219,6 +221,8 @@ function prepareHermesEnvironment(environment, options = {}) {
     OPENAI_BASE_URL: binding.baseUrlEnvName === "OPENAI_BASE_URL" ? providerBaseUrl || "" : "",
     OPENROUTER_BASE_URL: binding.baseUrlEnvName === "OPENROUTER_BASE_URL" ? providerBaseUrl || "" : "",
     AI_API_KEY: "",
+    CAREERADAPT_MIMO_API_KEY: "",
+    CAREERADAPT_DEEPSEEK_API_KEY: "",
     OPENAI_API_KEY: binding.credentialEnvName === "OPENAI_API_KEY" ? providerApiKey || "" : "",
     OPENROUTER_API_KEY: binding.credentialEnvName === "OPENROUTER_API_KEY" ? providerApiKey || "" : "",
     HERMES_CUSTOM_CAREERADAPT_API_KEY: binding.credentialEnvName === "HERMES_CUSTOM_CAREERADAPT_API_KEY" ? providerApiKey || "" : "",

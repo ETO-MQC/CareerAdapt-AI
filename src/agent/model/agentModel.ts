@@ -11,7 +11,9 @@ export const AgentModelMessageSchema = z.object({
   content: z.string(),
   name: z.string().min(1).optional(),
   toolCallId: z.string().min(1).optional(),
-  toolCalls: z.array(AgentModelToolCallSchema).optional()
+  toolCalls: z.array(AgentModelToolCallSchema).optional(),
+  // Provider protocol state for in-memory tool continuation; never display it.
+  reasoningContent: z.string().optional()
 }).strict();
 
 export const AgentModelToolSchema = z.object({
@@ -22,6 +24,7 @@ export const AgentModelToolSchema = z.object({
 
 export const AgentModelResultSchema = z.object({
   text: z.string().optional(),
+  reasoningContent: z.string().optional(),
   toolCalls: z.array(AgentModelToolCallSchema).max(4).optional(),
   stopReason: z.enum(["final", "tool_calls", "ask_user", "confirmation", "length", "error"]),
   // Safe provider identity only. Raw prompts and provider payloads never cross
@@ -38,7 +41,10 @@ export const AgentModelResultSchema = z.object({
 export const AgentModelRequestSchema = z.object({
   systemPrompt: z.string().min(1).max(40_000),
   messages: z.array(AgentModelMessageSchema).min(1).max(80),
-  tools: z.array(AgentModelToolSchema).max(32)
+  tools: z.array(AgentModelToolSchema).max(32),
+  toolChoice: z.union([z.enum(["auto", "none", "required"]), z.object({ type: z.literal("function"),
+    function: z.object({ name: z.string().min(1) }).strict() }).strict()]).optional(),
+  thinkingMode: z.enum(["enabled", "disabled"]).optional()
 }).strict();
 
 export type AgentModelToolCall = z.infer<typeof AgentModelToolCallSchema>;
@@ -59,6 +65,7 @@ export type AgentModelStreamEvent =
       provider?: string;
       model?: string;
       providerResponseShape?: string[];
+      reasoningContent?: string;
     };
 
 export interface AgentModel {

@@ -166,6 +166,25 @@ function chooseResponse({ mode, messages, tools }) {
     return call("career.resume.propose_impact_review", { proposalId: impact.review.proposalId,
       decisions: [{ index: 1, decision: "accept" }, { index: 3, decision: "reject" }] });
   }
+  if (mode === "integration" && latestUserText(messages) === "请读取当前人物、刚保存的 CORE-JD 岗位和对应岗位简历的最新版本。") {
+    const turn = messages.slice(messages.findLastIndex(message => message?.role === "user") + 1);
+    const results = turn.filter(message => message?.role === "tool");
+    const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
+    const nameIncludes = value => results.some(message => message.name?.includes(value));
+    if (!nameIncludes("profile_get")) return call("career.profile.get", { profileId: "current" });
+    if (!nameIncludes("job_list")) return call("career.job.list", {});
+    if (!nameIncludes("resume_list")) return call("career.resume.list", {});
+    const jobs = results.map(message => findCore02Payload(message.content, value => Array.isArray(value.jobs))).find(Boolean)?.jobs ?? [];
+    const resumes = results.map(message => findCore02Payload(message.content, value => Array.isArray(value.resumes))).find(Boolean)?.resumes ?? [];
+    const job = jobs.find(item => item.title.includes("CORE-JD") && item.company === "Core Test");
+    const resume = resumes.find(item => item.jobId === job?.id);
+    if (!job || !resume) return { content: "未找到已保存的岗位和岗位简历。" };
+    if (!nameIncludes("job_get")) return call("career.job.get", { jobId: job.id });
+    if (!nameIncludes("resume_get")) return call("career.resume.get", { resumeId: resume.id });
+    const detail = results.map(message => findCore02Payload(message.content, value => value.resume?.id === resume.id)).find(Boolean)?.resume;
+    if (detail?.currentRevisionId !== resume.currentRevisionId || detail?.revision !== resume.revision) return { content: "最新岗位简历读取不完整。" };
+    return { content: `已读取当前资料、CORE-JD 岗位和岗位简历版本 ${resume.revision}。` };
+  }
   if (mode === "integration" && ["继续看看刚才那个数据分析岗位。", "选择验收公司数据分析岗位。", "继续看看刚才那个产品运营岗位。", "选择验收公司产品运营岗位。"].includes(latestUserText(messages))) {
     const turn = messages.slice(messages.findLastIndex(message => message?.role === "user") + 1);
     const results = turn.filter(message => message?.role === "tool");
@@ -264,6 +283,7 @@ function chooseResponse({ mode, messages, tools }) {
       const source = resumes.find(resume => resume.purpose === "general");
       if (source?.profileId) return call("career.profile.get", { profileId: source.profileId });
       if (!results.some(message => message.name?.includes("resume_list"))) return call("career.resume.list", {});
+      if (!results.some(message => message.name?.includes("profile_get"))) return call("career.profile.get", { profileId: "current" });
       return { content: "C02COMPOSEMISSINGPROFILE: no selected Profile or Resume in current Run." };
     }
     if (latestUserText(messages).includes("UPDATE")) {

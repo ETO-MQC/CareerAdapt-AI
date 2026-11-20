@@ -481,7 +481,7 @@ export class ProfileIntakeSemanticService {
         dedupeKeys.add(dedupeKey);
         const id = `intake-${stableHashText(`${dedupeKey}:${resolved.sourceQuote}`).slice(0, 16)}-${index}`;
         const item = normalizeSourceGroundedGenericRole(
-          normalizeV2StructuredItem(proposal.structuredItem, proposal.sectionType, id, uncertainFields),
+          normalizeV2StructuredItem(proposal.structuredItem, proposal.sectionType, id, uncertainFields, resolved.sourceQuote),
           resolved.sourceQuote
         );
         if (!item) throw new Error(`profile_intake_structured_item_invalid:${proposal.sectionType}`);
@@ -767,7 +767,7 @@ function verifyV2Proposal(
   if (!sourceQuote.trim()) throw new Error("profile_intake_source_span_empty");
   const id = `intake-${stableHashText(`${proposal.candidateKey}:${sourceQuote}`).slice(0, 16)}-${index}`;
   const uncertainFields = [...new Set(proposal.uncertainFields)];
-  const item = normalizeV2StructuredItem(proposal.structuredItem, proposal.sectionType, id, uncertainFields);
+  const item = normalizeV2StructuredItem(proposal.structuredItem, proposal.sectionType, id, uncertainFields, sourceQuote);
   if (!item) throw new Error(`profile_intake_structured_item_invalid:${proposal.sectionType}`);
   assertFactPreserving(item, sourceQuote);
   const fieldEvidence = derivedV2FieldEvidence(item, sourceQuote, uncertainFields);
@@ -797,7 +797,8 @@ function normalizeV2StructuredItem(
   rawItem: unknown,
   sectionType: ProfileIntakeSemanticV2Candidate["sectionType"],
   id: string,
-  uncertainFields: string[]
+  uncertainFields: string[],
+  sourceQuote: string
 ): ResumeItemV2 | undefined {
   if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) return undefined;
   const raw = rawItem as Record<string, unknown>;
@@ -809,8 +810,12 @@ function normalizeV2StructuredItem(
   const cleaned: Record<string, unknown> = { id, customFields: [], sectionType };
   for (const [field, value] of Object.entries(raw)) {
     if (field === "id" || field === "candidateKey" || field === "sourceQuote" || field === "fieldEvidence") continue;
+    if (field === "company" && (sectionType === "work" || sectionType === "internship") && typeof raw.organization === "string" && raw.organization.trim()) continue;
+    if (field === "organization" && typeof value === "string" && !value.trim() && cleaned.organization) continue;
     const canonicalField = sectionType === "awards" && field === "title" && typeof value === "string" && !raw.name
       ? "name"
+      : field === "company" && (sectionType === "work" || sectionType === "internship")
+        && typeof value === "string" && Boolean(value.trim()) && sourceQuote.includes(value.trim()) ? "organization"
       : field;
     if (!allowed.has(canonicalField) || value === null) {
       if (value !== undefined && field !== "customFields") uncertainFields.push(field);
@@ -826,7 +831,7 @@ function normalizeV2StructuredItem(
       cleaned[canonicalField] = normalized;
       continue;
     }
-    cleaned[canonicalField] = value;
+    cleaned[canonicalField] = field === "company" && canonicalField === "organization" && typeof value === "string" ? value.trim() : value;
   }
   if (cleaned.current === true && cleaned.endDate !== undefined) {
     delete cleaned.endDate;

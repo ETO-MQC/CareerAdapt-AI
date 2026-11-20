@@ -9,6 +9,8 @@
   },
   "scripts": {
     "dev": "node --max-old-space-size=4096 scripts/dev-with-hermes.mjs",
+    "dev:mimo": "node --max-old-space-size=4096 scripts/dev-with-mimo.mjs",
+    "dev:deepseek": "node --max-old-space-size=4096 scripts/dev-with-deepseek.mjs",
     "dev:watch": "node scripts/dev-watchdog.mjs",
     "dev:next": "next dev",
     "build": "next build",
@@ -28,6 +30,7 @@
     "hermes:runtime-smoke": "node scripts/hermes-runtime-smoke.mjs",
     "hermes:integration": "node scripts/hermes-integration.mjs",
     "hermes:preflight": "node scripts/hermes-preflight.mjs",
+    "hermes:prepare:dev": "node scripts/prepare-dev-hermes-runtime.mjs",
     "hermes:companion": "node electron/hermesCompanion.js",
     "hermes:self-test": "node scripts/hermes-runtime-self-test.mjs",
     "hermes:skills": "node scripts/sync-career-skills.mjs",

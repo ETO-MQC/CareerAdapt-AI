@@ -108,7 +108,7 @@ function configureOcrDefaults() {
 async function configureHermesDefaults(appPath, environment, options = {}) {
   const bundledRuntimeRoot = app.isPackaged
     ? path.join(process.resourcesPath, "hermes-runtime")
-    : path.join(appPath, ".electron-build", "hermes-runtime-v4");
+    : await import("../scripts/ensure-hermes-runtime.mjs").then(({ ensureDevelopmentHermesBundle }) => ensureDevelopmentHermesBundle(appPath, environment));
   const hermesHome = environment.CAREERADAPT_HERMES_HOME?.trim() || path.join(app.getPath("userData"), "hermes");
   const hasBundledRuntime = fs.existsSync(path.join(bundledRuntimeRoot, "runtime-manifest.json"));
   if (hasBundledRuntime) {

@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import companion from "../electron/hermesCompanion.js";
 import { assertRp01RuntimeParity } from "./rp01-preflight.mjs";
 import { startFakeOpenAiProvider } from "../tests/support/fake-openai-compatible-provider.mjs";
+import { developmentHermesBundleRoot } from "./development-hermes-path.mjs";
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,7 +23,7 @@ const isSlowProvider = suite === "slow-provider";
 if (!isCoreBehavior && !isCoreMultiturn && !isCareerAgentEval && !isCareerAgentReal && !isConfigR1 && !isSlowProvider && suite !== "integration") {
   throw new Error(`unknown Hermes integration suite: ${suite}`);
 }
-const bundleRoot = path.resolve(process.env.HERMES_RUNTIME_ROOT?.trim() || path.join(projectRoot, ".electron-build", "hermes-runtime-v4"));
+const bundleRoot = path.resolve(process.env.HERMES_RUNTIME_ROOT?.trim() || developmentHermesBundleRoot(projectRoot));
 assertRp01RuntimeParity(projectRoot, bundleRoot);
 const appPort = await companion.findAvailablePort({ host: "127.0.0.1", preferredPort: isConfigR1 ? 3315 : 3010, maxAttempts: 100 });
 if (!appPort) throw new Error("no free port for hermetic CareerAdapt integration");
@@ -140,7 +141,9 @@ try {
         toolNames: request.toolNames }))
     }, null, 2);
     fs.writeFileSync(path.join(projectRoot, ".tmp", `hermes-${integrationRunId}-summary.json`), summary);
-    fs.writeFileSync(path.join(projectRoot, ".tmp/hermes-integration-summary.json"), summary);
+    if (process.env.HERMES_INTEGRATION_PRESERVE_SUMMARY !== "1") {
+      fs.writeFileSync(path.join(projectRoot, ".tmp/hermes-integration-summary.json"), summary);
+    }
   }
   if (isConfigR1 && provider) fs.writeFileSync(path.join(projectRoot, ".tmp/r1-provider-attempts.json"), JSON.stringify({ baseUrl: provider.baseUrl, models: provider.requests.map((request) => request.model), authMatches: provider.requests.map((request) => request.authorization === `Bearer ${provider.apiKey}`) }, null, 2));
   await stopWebSupervisor(appUrl);

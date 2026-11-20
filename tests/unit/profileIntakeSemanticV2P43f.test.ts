@@ -4,6 +4,19 @@ import { adaptConversationMessageToIntakeDraft, buildConversationIntakeReviewPro
 import { aiTaskRegistry } from "@/ai/tasks/registry";
 
 describe("P4.3f V2 conversational extraction", () => {
+  it("maps a sourced work company alias to organization and rejects an invented company", async () => {
+    const narrative = "我在示例科技做产品运营实习，整理用户反馈。";
+    const run = (company: string) => new ProfileIntakeSemanticService(async () => ({
+      ok: true as const,
+      data: { candidates: [{ candidateKey: "internship", sectionType: "internship" as const,
+        sourceBlockIds: ["source-block-1"], sourceQuote: narrative,
+        structuredItem: { company, role: "产品运营", description: "整理用户反馈" }, uncertainFields: [] }], followUpQuestions: [] }
+    })).normalize({ rawNarrative: narrative });
+    const grounded = await run("示例科技");
+    expect(grounded.candidates[0]?.normalization.structuredItem).toMatchObject({ sectionType: "internship", organization: "示例科技" });
+    const invented = await run("虚构公司");
+    expect(invented.candidates.some(candidate => (candidate.normalization.structuredItem as { organization?: string } | undefined)?.organization === "虚构公司")).toBe(false);
+  });
   it("uses named source blocks and quarantines one bad V3 candidate without numeric offsets", async () => {
     const narrative = "开发 TaskAI 项目，使用 Python。获得省级竞赛三等奖。";
     const result = await new ProfileIntakeSemanticService(async () => ({

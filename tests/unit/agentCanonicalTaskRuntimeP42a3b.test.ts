@@ -883,6 +883,27 @@ describe("P4.2a.3b canonical task runtime", () => {
     expect(result?.messages.filter((message) => message.role === "user")).toHaveLength(0);
   });
 
+  it("reopens an ignored candidate through the same revision-checked review tool", async () => {
+    const base = AgentRuntime.create("guided_profile_intake", "collect_experience");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = AgentTaskStateSchema.parse({ ...reducer.create(base, "profile_intake"),
+      stage: "collect_experience", completionStatus: "waiting_for_user", knownSlots: {
+        intakeImportId: "intake-reopen", expectedIntakeDraftRevision: 4,
+        intakeCandidates: [{ id: "ignored-candidate", label: "实习", decision: "reject", included: false }]
+      } });
+    const session: AgentSession = { ...base, taskState };
+    const execute = vi.fn(async () => ({ ok: true, operationId: "reopen", toolName: "review_profile_intake",
+      data: { importId: "intake-reopen", expectedDraftRevision: 5, candidateId: "ignored-candidate", decision: "reopen", unresolvedCount: 1 },
+      artifactIds: [], completedAt: new Date().toISOString() }));
+    const host = new AgentHostStore({ executor: { execute } as never, persistence: { save: vi.fn(async (value: AgentSession) => value) } as never });
+    host.adopt(session);
+    await host.dispatch({ type: "artifact_action", action: { type: "profile_intake_candidate_decision", candidateId: "ignored-candidate", decision: "reopen" } },
+      { pageContext: { pathname: "/ai-workspace", query: {} } });
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ toolName: "review_profile_intake", toolInput: {
+      importId: "intake-reopen", expectedDraftRevision: 4, candidateId: "ignored-candidate", decision: "reopen"
+    } }));
+  });
+
   it("forwards a profile intake label edit without turning it into an evidence patch", async () => {
     const base = AgentRuntime.create("guided_profile_intake", "review_facts");
     const reducer = new AgentTaskStateReducer();

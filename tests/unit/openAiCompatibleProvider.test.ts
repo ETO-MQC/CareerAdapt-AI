@@ -13,6 +13,120 @@ afterEach(() => {
 });
 
 describe("OpenAI-compatible structured requests", () => {
+  it("selects DeepSeek thinking per task without changing other providers", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' }, finish_reason: "stop" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleProvider({ ...settings, baseUrl: "https://api.deepseek.com", model: "deepseek-flash", provider: "openai-compatible" });
+    await provider.invoke({ systemPrompt: "JSON", userPrompt: "test", maxOutputChars: 1000, thinkingMode: "disabled" });
+    await provider.invoke({ systemPrompt: "JSON", userPrompt: "test", maxOutputChars: 1000 });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).thinking).toEqual({ type: "disabled" });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).not.toHaveProperty("thinking");
+  });
+
+  it("carries DeepSeek thinking state through tool calls without exposing it as answer text", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ choices: [{ message: {
+      content: null, reasoning_content: "private continuation", tool_calls: [{ id: "call-1", function: { name: "get_profile", arguments: '{"profileId":"current"}' } }]
+    }, finish_reason: "tool_calls" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleProvider({ ...settings, baseUrl: "https://api.deepseek.com", model: "deepseek-flash", provider: "openai-compatible" });
+    const tools = [{ name: "get_profile", description: "Read profile", inputSchema: { type: "object" } }];
+    const result = await provider.completeWithTools({ systemPrompt: "Use tools", messages: [{ role: "user", content: "Read" }], tools, thinkingMode: "enabled" });
+    expect(result.text).toBeUndefined();
+    expect(result.reasoningContent).toBe("private continuation");
+    expect(result.toolCalls?.[0]).toMatchObject({ id: "call-1", name: "get_profile", arguments: { profileId: "current" } });
+    await provider.completeWithTools({ systemPrompt: "Use tools", tools, thinkingMode: "enabled", messages: [
+      { role: "user", content: "Read" }, { role: "assistant", content: "", toolCalls: result.toolCalls, reasoningContent: result.reasoningContent },
+      { role: "tool", content: "confirmed profile", toolCallId: "call-1" }
+    ] });
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body.messages[2]).toMatchObject({ role: "assistant", reasoning_content: "private continuation", tool_calls: [{ id: "call-1" }] });
+    expect(body.messages[3]).toMatchObject({ role: "tool", tool_call_id: "call-1" });
+    await expect(provider.completeWithTools({ systemPrompt: "Use tools", tools, thinkingMode: "enabled", messages: [
+      { role: "assistant", content: "", toolCalls: result.toolCalls }
+    ] })).rejects.toMatchObject({ code: "missing_tool_reasoning" });
+  });
+
+  it("defaults DeepSeek tool requests to non-thinking and rejects incomplete calls", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: {
+      content: null, tool_calls: [{ id: "call-1", function: { name: "get_profile", arguments: "{}" } }]
+    }, finish_reason: "tool_calls" }] }))).mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: {
+      content: null, tool_calls: [{ id: "call-1", function: { name: "get_profile", arguments: '{"id":' } }]
+    }, finish_reason: "length" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleProvider({ ...settings, baseUrl: "https://api.deepseek.com", model: "deepseek-flash", provider: "openai-compatible" });
+    const request = { systemPrompt: "Use tools", messages: [{ role: "user" as const, content: "Read" }], tools: [{ name: "get_profile", description: "Read profile", inputSchema: { type: "object" } }] };
+    expect((await provider.completeWithTools(request)).stopReason).toBe("tool_calls");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).thinking).toEqual({ type: "disabled" });
+    await expect(provider.completeWithTools(request)).rejects.toMatchObject({ code: "model_output_truncated" });
+  });
+
+  it("disables DeepSeek thinking for a named forced tool", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: null,
+      tool_calls: [{ id: "call-1", function: { name: "get_profile", arguments: "{}" } }] }, finish_reason: "tool_calls" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleProvider({ ...settings, baseUrl: "https://api.deepseek.com", model: "deepseek-flash", provider: "openai-compatible" });
+    const toolChoice = { type: "function" as const, function: { name: "get_profile" } };
+    await provider.completeWithTools({ systemPrompt: "Use tools", messages: [{ role: "user", content: "Read" }],
+      tools: [{ name: "get_profile", description: "Read profile", inputSchema: { type: "object" } }], toolChoice, thinkingMode: "enabled" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ thinking: { type: "disabled" }, tool_choice: toolChoice });
+  });
+
+  it("preserves DeepSeek streamed reasoning privately and rejects a truncated tool stream", async () => {
+    const frames = [
+      { choices: [{ delta: { reasoning_content: "private " }, finish_reason: null }] },
+      { choices: [{ delta: { reasoning_content: "continuation", tool_calls: [{ index: 0, id: "call-1", function: { name: "get_profile", arguments: '{"id":' } }] }, finish_reason: null }] },
+      { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '"current"}' } }] }, finish_reason: "tool_calls" }] }
+    ];
+    const sse = (items: unknown[]) => new Response(items.map(frame => `data: ${JSON.stringify(frame)}\n\n`).join(""), { headers: { "Content-Type": "text/event-stream" } });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(sse(frames)).mockResolvedValueOnce(sse([frames[1], { choices: [{ delta: {}, finish_reason: "length" }] }])));
+    const provider = new OpenAiCompatibleProvider({ ...settings, baseUrl: "https://api.deepseek.com", model: "deepseek-flash", provider: "openai-compatible" });
+    const request = { systemPrompt: "Use tools", messages: [{ role: "user" as const, content: "Read" }], tools: [{ name: "get_profile", description: "Read profile", inputSchema: { type: "object" } }], thinkingMode: "enabled" as const };
+    const events = []; for await (const event of provider.streamTurn(request)) events.push(event);
+    expect(events).toContainEqual(expect.objectContaining({ type: "finish", reasoningContent: "private continuation", stopReason: "tool_calls" }));
+    expect(events.filter(event => event.type === "assistant_text_delta")).toHaveLength(0);
+    const consume = async () => { for await (const event of provider.streamTurn(request)) void event; };
+    await expect(consume()).rejects.toMatchObject({ code: "model_output_truncated" });
+  });
+  it("budgets MiMo thinking without treating reasoning as the structured answer", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { reasoning: "private reasoning", content: '{"ok":true}' }, finish_reason: "stop" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleProvider({ ...settings, provider: "custom:amd", baseUrl: "https://developer.amd.com.cn/radeon/api/v1", model: "MiMo-V2.6-Flash" });
+    const result = await provider.invoke({ systemPrompt: "JSON", userPrompt: "anonymous", maxOutputChars: 1000 });
+    expect(result.output).toEqual({ ok: true });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.max_tokens).toBe(4096);
+    expect(body).not.toHaveProperty("reasoning_effort");
+  });
+
+  it("reports MiMo's empty length-limited response as truncation", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { reasoning: "thinking", content: "" }, finish_reason: "length" }] }))));
+    const provider = new OpenAiCompatibleProvider({ ...settings, provider: "custom:amd", baseUrl: "https://developer.amd.com.cn/radeon/api/v1", model: "MiMo-V2.6-Flash" });
+    await expect(provider.invoke({ systemPrompt: "JSON", userPrompt: "anonymous", maxOutputChars: 1000 })).rejects.toMatchObject({ code: "model_output_truncated" });
+  });
+
+  it("does not report a reasoning-only truncated MiMo text stream as complete", async () => {
+    const frame = { choices: [{ delta: { reasoning: "thinking", content: "" }, finish_reason: "length" }] };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`data: ${JSON.stringify(frame)}\n\n`, { headers: { "Content-Type": "text/event-stream" } })));
+    const provider = new OpenAiCompatibleProvider({ ...settings, provider: "custom:amd", baseUrl: "https://developer.amd.com.cn/radeon/api/v1", model: "MiMo-V2.6-Flash" });
+    const consume = async () => { for await (const event of provider.streamText({ systemPrompt: "Brief", userPrompt: "hello", maxOutputChars: 100 })) void event; };
+    await expect(consume()).rejects.toMatchObject({ code: "model_output_truncated" });
+  });
+
+  it("retains streamed MiMo tool fragments while excluding reasoning", async () => {
+    const frames = [
+      { choices: [{ delta: { reasoning: "private reasoning" }, finish_reason: null }] },
+      { choices: [{ delta: { tool_calls: [{ index: 0, id: "call-1", function: { name: "get_profile", arguments: '{"id":' } }] }, finish_reason: null }] },
+      { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '"current"}' } }] }, finish_reason: "tool_calls" }] }
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(new Response(frames.map(frame => `data: ${JSON.stringify(frame)}\n\n`).join(""), { headers: { "Content-Type": "text/event-stream" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleProvider({ ...settings, provider: "custom:amd", baseUrl: "https://developer.amd.com.cn/radeon/api/v1", model: "MiMo-V2.6-Flash" });
+    const events = [];
+    for await (const event of provider.streamTurn({ systemPrompt: "Use tools", messages: [{ role: "user", content: "read profile" }], tools: [{ name: "get_profile", description: "Read profile", inputSchema: { type: "object" } }] })) events.push(event);
+    expect(events).toContainEqual(expect.objectContaining({ type: "tool_call_complete", call: { id: "call-1", name: "get_profile", arguments: { id: "current" } } }));
+    expect(JSON.stringify(events)).not.toContain("private reasoning");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).max_tokens).toBe(4096);
+  });
   it.each([undefined, "low"] as const)("uses Radeon top-level low for extraction with requested effort %s", async reasoningEffort => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' }, finish_reason: "stop" }] })));
     vi.stubGlobal("fetch", fetchMock);

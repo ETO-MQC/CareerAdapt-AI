@@ -101,6 +101,7 @@ import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
 import { jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
 import { activeWorkflowInteractionFor, TARGET_REQUIRED_PROMPT } from "./workflowUserInputCheckpoint";
 import { activeFitNextActionMessage, deriveAgentTurnLifecycle } from "./agentTurnLifecycle";
+import { sanitizeReasoningEvent } from "./sanitizeReasoningEvent";
 import { resolveTailoringEntityReference, type TailoringContextCandidate } from "./tailoringContextResolver";
 export { activeWorkflowInteractionFor } from "./workflowUserInputCheckpoint";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
@@ -417,6 +418,9 @@ export class AgentHostStore {
   private readonly workflowInteractionExecutions = new Map<string, Promise<WorkflowInteractionConsumption>>();
   private readonly pendingInputs = new Map<string, PendingUserInput[]>();
   private runtimeEventQueue: Promise<void> = Promise.resolve();
+  private streamNotificationTimer?: ReturnType<typeof setTimeout>;
+  private lastStreamProgressAt = 0;
+  private lastStreamProgressKey?: string;
   private streamCheckpointTimer?: ReturnType<typeof setTimeout>;
   private streamCheckpointInFlight?: Promise<void>;
   private streamCheckpointQueued = false;
@@ -1233,7 +1237,12 @@ export class AgentHostStore {
       }
       const nextActionMessage = activeFitNextActionMessage(current);
       const nextActionText = input.event.text.trim().replace(/[。！!]+$/u, "");
-      const explicitNextOption = nextActionMessage?.options?.find(option => !option.disabled && option.label === nextActionText);
+      const availableNextOptions = nextActionMessage?.options?.filter(option => !option.disabled) ?? [];
+      const ordinal = /^(?:第)?([一二三123])(?:个|项)?$/u.exec(nextActionText)?.[1];
+      const ordinalIndex = ordinal ? ["一", "二", "三"].indexOf(ordinal) : -1;
+      const numericIndex = ordinal && /^[123]$/u.test(ordinal) ? Number(ordinal) - 1 : ordinalIndex;
+      const explicitNextOption = availableNextOptions.find(option => option.label === nextActionText)
+        ?? (numericIndex >= 0 ? availableNextOptions[numericIndex] : undefined);
       if (explicitNextOption?.action.type === "answer") {
         return this.prepareRuntimeUserEvent({ session: current, pageContext: input.pageContext,
           event: { type: "option_selected", optionId: explicitNextOption.id, action: explicitNextOption.action } });
@@ -2663,7 +2672,8 @@ export class AgentHostStore {
   }
 
   async applyRuntimeEvent(event: AgentRuntimeEvent, assistantMessageId: string) {
-    const queued = this.runtimeEventQueue.then(() => this.applyRuntimeEventNow(event, assistantMessageId));
+    const safeEvent = sanitizeReasoningEvent(event);
+    const queued = this.runtimeEventQueue.then(() => this.applyRuntimeEventNow(safeEvent, assistantMessageId));
     this.runtimeEventQueue = queued.then(() => undefined, () => undefined);
     return queued;
   }
@@ -2746,7 +2756,37 @@ export class AgentHostStore {
       !current.activeTurn
       || current.activeTurn.id !== event.turnId
       || assistant?.turnId !== event.turnId
-    ) return undefined;
+    ) {
+      // Confirming a composition can create a Host-owned turn before the
+      // original Hermes run emits its terminal event. Reconcile only that
+      // exact run's transport status; never replay its content or task state.
+      const run = current.hermesRun;
+      const runHandle = objectValue(objectValue(event.data).runHandle);
+      const confirmedComposition = current.taskState?.workflowId === "compose_resume"
+        && current.taskState.completionStatus === "completed"
+        && current.messages.some(message => message.metadata?.confirmedWriteCompleted === true
+          && objectValue(message.metadata.confirmedWrite).toolName === "career.workflow.compose_resume");
+      if (confirmedComposition && (event.type === "turn_completed" || event.type === "turn_failed")
+        && run?.turnId === event.turnId && run.runId === runHandle.runId
+        && run.careerAgentSessionId === current.id && assistant?.turnId === event.turnId
+        && (!assistant.branchId || assistant.branchId === current.activeBranchId)
+        && ["queued", "running", "waiting_for_approval", "stopping"].includes(run.status)) {
+        const staleConfirmation = current.pendingConfirmation?.turnId === event.turnId
+          && current.pendingConfirmation.toolName === "career.workflow.compose_resume"
+          && current.pendingToolCall?.operationId === current.pendingConfirmation.operationId;
+        const reconciled = staleConfirmation ? {
+          ...markConfirmationResolution(current, "confirmed"), pendingConfirmation: undefined, pendingToolCall: undefined,
+          taskState: current.taskState ? { ...current.taskState,
+            knownSlots: { ...current.taskState.knownSlots, pendingConfirmation: undefined } } : current.taskState
+        } : current;
+        const saved = await this.dependencies.persistence.save({ ...reconciled,
+          hermesRun: { ...run, status: event.type === "turn_completed" ? "completed" : runHandle.status === "cancelled" ? "cancelled" : "failed", lastEventAt: event.timestamp },
+          updatedAt: new Date().toISOString() });
+        this.patchSession(saved);
+        return saved;
+      }
+      return undefined;
+    }
     const knownPendingToolReceipt = current.hermesRun?.status === "completed"
       && ["tool_call_completed", "tool_call_failed"].includes(event.type)
       && event.operationId && current.messages.some(message => message.turnId === event.turnId
@@ -2756,8 +2796,14 @@ export class AgentHostStore {
     if (current.hermesRun?.turnId === event.turnId && ["completed", "failed", "cancelled"].includes(current.hermesRun.status)
       && !knownPendingToolReceipt) return current;
     if (event.eventId && current.activeTurn.projectedHermesEventIds?.includes(event.eventId)) return current;
-    if (event.type === "text_delta" && event.delta
-      || ["tool_call_started", "tool_call_requested", "tool_call_completed", "tool_call_failed", "artifact_updated"].includes(event.type)) {
+    if (event.type === "text_delta" && event.delta) {
+      const progressKey = `${event.sessionId}:${event.turnId}`;
+      if (progressKey !== this.lastStreamProgressKey || Date.now() - this.lastStreamProgressAt >= Math.min(250, (this.dependencies.stallThresholdMs ?? 30_000) / 3)) {
+        this.lastStreamProgressKey = progressKey;
+        this.lastStreamProgressAt = Date.now();
+        this.markProgress(event.sessionId);
+      }
+    } else if (["tool_call_started", "tool_call_requested", "tool_call_completed", "tool_call_failed", "artifact_updated"].includes(event.type)) {
       this.markProgress(event.sessionId);
     }
     let next = current;
@@ -3389,7 +3435,7 @@ export class AgentHostStore {
     this.patchSession(next, {
       currentObservation: event.data ?? event.message,
       ...(lateTailoringRecovery ? { turnStatus: "waiting_for_user" as const, activeTurnId: event.turnId } : {})
-    });
+    }, event.type === "text_delta");
     return next;
   }
 
@@ -3463,8 +3509,12 @@ export class AgentHostStore {
         const key = `profile-impact:${active.id}:${action.operationId}`;
         const running = this.artifactActionExecutions.get(key);
         if (running) return running;
-        const execution = this.analyzeProfileImpact(active, action)
+        // The report updates the same durable session as Hermes lifecycle
+        // events. Serialize both projections so an older report snapshot
+        // cannot overwrite a terminal Run that arrived in parallel.
+        const execution = this.runtimeEventQueue.then(() => this.analyzeProfileImpact(active, action))
           .finally(() => this.artifactActionExecutions.delete(key));
+        this.runtimeEventQueue = execution.then(() => undefined, () => undefined);
         this.artifactActionExecutions.set(key, execution);
         return execution;
       }
@@ -9567,7 +9617,7 @@ export class AgentHostStore {
     };
   }
 
-  private patchSession(session: AgentSession, patch: Partial<AgentHostSnapshot> = {}) {
+  private patchSession(session: AgentSession, patch: Partial<AgentHostSnapshot> = {}, deferNotification = false) {
     if (this.snapshot.activeSessionId !== session.id && this.snapshot.activeSessionId !== undefined) return;
     this.patch({
       activeSessionId: session.id,
@@ -9576,7 +9626,7 @@ export class AgentHostStore {
       pendingConfirmation: session.pendingConfirmation,
       artifacts: session.artifactRefs,
       ...patch
-    });
+    }, deferNotification);
   }
 
   private notifyBackgroundCompletion(session: AgentSession, status: SessionExecution["status"]) {
@@ -9665,11 +9715,20 @@ export class AgentHostStore {
     return current;
   }
 
-  private patch(patch: Partial<AgentHostSnapshot>) {
+  private patch(patch: Partial<AgentHostSnapshot>, deferNotification = false) {
     const sessionId = patch.activeSessionId ?? this.snapshot.activeSessionId;
     const controllerState = patch.controllerState
       ?? (sessionId ? this.executionCoordinator.getState(sessionId) : this.snapshot.controllerState);
     this.snapshot = { ...this.snapshot, ...patch, controllerState };
+    if (deferNotification) {
+      if (!this.streamNotificationTimer) this.streamNotificationTimer = setTimeout(() => {
+        this.streamNotificationTimer = undefined;
+        for (const listener of this.listeners) listener();
+      }, 50);
+      return;
+    }
+    if (this.streamNotificationTimer) clearTimeout(this.streamNotificationTimer);
+    this.streamNotificationTimer = undefined;
     for (const listener of this.listeners) listener();
   }
 
@@ -12972,15 +13031,38 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     });
     session = projectTaskStateIntoSession(session, task);
   }
-  if (toolName === "career.workflow.job_fit" && observationCheckpoint.kind === "job_fit"
-    && (!session.taskState || session.taskState.workflowId === "entity_selection")) {
+  const taskBeforeTurn = session.turnCheckpoints.findLast(checkpoint => checkpoint.turnId === session.activeTurn?.id)?.taskStateBefore;
+  const fitSelection = session.taskState?.selectedEntities;
+  const fitMatchesSelection = (!fitSelection?.profileId || fitSelection.profileId === observationCheckpoint.profileId)
+    && (!fitSelection?.resumeId || fitSelection.resumeId === observationCheckpoint.resumeId)
+    && (!fitSelection?.jobId || fitSelection.jobId === observationCheckpoint.jobId);
+  if (toolName === "career.workflow.job_fit" && observationCheckpoint.kind === "job_fit" && fitMatchesSelection
+    && (!session.taskState || session.taskState.workflowId === "entity_selection"
+      || ["completed", "cancelled", "failed"].includes(session.taskState.completionStatus)
+      || taskBeforeTurn && ["completed", "cancelled", "failed"].includes(taskBeforeTurn.completionStatus))) {
     const reducer = new AgentTaskStateReducer();
-    const task = reducer.reduce(session.taskState ?? reducer.create(session, "analyze_job_fit", { workflowId: "analyze_job_fit", step: "analyze_fit" }), {
+    let task = reducer.reduce(session.taskState ?? reducer.create(session, "analyze_job_fit", { workflowId: "analyze_job_fit", step: "analyze_fit" }), {
       type: "new_root_task", goal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "analyze_fit"
     });
+    const impactCheckpoint = session.turnCheckpoints.findLast(checkpoint => checkpoint.turnId === session.activeTurn?.id
+      && checkpoint.branchId === session.activeBranchId)?.taskStateBefore;
+    const impactSource = [session.taskState, impactCheckpoint].find(candidate => {
+      const slots = candidate?.knownSlots;
+      const report = objectValue(slots?.profileImpactReport);
+      const binding = objectValue(report.binding);
+      const outcome = objectValue(slots?.profileIntakeCommitOutcome);
+      return Boolean(session.personId && session.activeProfileId && binding.personId === session.personId
+        && binding.profileId === session.activeProfileId && outcome.status === "COMMITTED_VERIFIED"
+        && outcome.operationId === binding.operationId
+        && session.artifactRefs.some(artifact => artifact.kind === "resume_impact" && artifact.id === `resume-impact-${binding.operationId}`));
+    });
+    if (impactSource) task = normalizeAgentTaskState({ ...task, knownSlots: { ...task.knownSlots,
+      profileImpactReport: impactSource.knownSlots.profileImpactReport,
+      profileIntakeCommitOutcome: impactSource.knownSlots.profileIntakeCommitOutcome,
+      ...(impactSource.knownSlots.profileImpactProposal ? { profileImpactProposal: impactSource.knownSlots.profileImpactProposal } : {})
+    } });
     session = projectTaskStateIntoSession(session, task);
   }
-  const taskBeforeTurn = session.turnCheckpoints.findLast(checkpoint => checkpoint.turnId === session.activeTurn?.id)?.taskStateBefore;
   if (toolName === "career.workflow.compose_resume" && (!session.taskState
     || ["completed", "cancelled", "failed"].includes(session.taskState.completionStatus)
     || taskBeforeTurn && ["completed", "cancelled", "failed"].includes(taskBeforeTurn.completionStatus))
@@ -13439,7 +13521,7 @@ function artifactActionExecution(
       || !candidate
       || action.decision === "accept" && (accepted || candidate.needsNormalization === true || candidate.canAccept === false)
       || action.decision === "reject" && !accepted && candidate.decision === "reject"
-      || action.decision === "reopen" && !accepted
+      || action.decision === "reopen" && !accepted && candidate.decision !== "reject"
       || typeof state.knownSlots.intakeImportId !== "string"
       || typeof state.knownSlots.expectedIntakeDraftRevision !== "number"
     ) {

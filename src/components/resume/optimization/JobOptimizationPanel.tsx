@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, Sparkles, Square } from "lucide-react";
-import { analyzeJobFit, answerTailoringClarification, applyTailoringPlan, confirmTailoringClaims, createTailoringPlan, validateTailoringSuggestions, withPlannerActions, withTailoringSuggestions } from "@/services/jobs/tailoringService";
+import { analyzeJobFit, answerTailoringClarification, applyTailoringPlan, classifyTailoringQuestionAnswer, confirmTailoringClaims, createTailoringPlan, validateTailoringSuggestions, withPlannerActions, withTailoringSuggestions } from "@/services/jobs/tailoringService";
 import { invokeStructuredAi } from "@/ai/client";
 import type {
   CareerProfile,
@@ -57,6 +57,8 @@ export function JobOptimizationPanel({
   const [pending, setPending] = useState(false);
   const [progress, setProgress] = useState({ step: 0, completed: 0, skipped: 0, failed: 0 });
   const generationController = useRef<AbortController | undefined>(undefined);
+  const autoContinueTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => { if (autoContinueTimer.current) clearTimeout(autoContinueTimer.current); }, []);
   const [plannerAssessment, setPlannerAssessment] = useState<{ globalNotes?: string; direct: number; confirmable: number; clarification: number; materials: number; keep: number }>();
   const [activeQuestionId, setActiveQuestionId] = useState<string>();
   const [clarificationAnswer, setClarificationAnswer] = useState<string | string[] | boolean>("");
@@ -286,7 +288,7 @@ export function JobOptimizationPanel({
     const proficiency = question.answerType === "proficiency" ? ({ "熟练使用": "proficient", "熟悉基础": "familiar", "了解": "aware", "正在学习": "learning" } as const)[String(clarificationAnswer) as "熟练使用" | "熟悉基础" | "了解" | "正在学习"] : undefined;
     const next = answerTailoringClarification({ plan, question, answer: clarificationAnswer, proficiency, branch: activeBranch });
     const newIds = next.claims.filter((claim) => !plan.claims.some((existing) => existing.id === claim.id)).map((claim) => claim.id);
-    if (!newIds.length && clarificationAnswer !== false && clarificationAnswer !== "没有使用") {
+    if (!newIds.length && classifyTailoringQuestionAnswer(clarificationAnswer) === "answered") {
       onMessage("未能为这个回答找到安全的写入字段，请返回简历补充对应条目后重试。");
       return;
     }
@@ -302,12 +304,14 @@ export function JobOptimizationPanel({
     const remainingQuestions = (next.clarificationQuestions ?? []).filter((q) => !answeredQuestionIds.has(q.id) && q.id !== question.id);
     if (remainingQuestions.length === 0 && pendingBasePlan && pendingTaskInputs.length) {
       // 所有问题已回答，自动继续生成建议
-      setTimeout(() => { void continueToSuggestions(); }, 500);
+      autoContinueTimer.current = setTimeout(() => { autoContinueTimer.current = undefined; void continueToSuggestions(next); }, 500);
     }
   }
 
-  async function continueToSuggestions() {
-    if (!pendingTaskInputs.length) return;
+  async function continueToSuggestions(updatedPlan?: ResumeTailoringPlan) {
+    if (autoContinueTimer.current) clearTimeout(autoContinueTimer.current);
+    autoContinueTimer.current = undefined;
+    if (!pendingTaskInputs.length || generationController.current) return;
     const controller = new AbortController();
     generationController.current = controller;
     setPending(true);
@@ -315,7 +319,7 @@ export function JobOptimizationPanel({
     setView("suggestions");
     try {
       // 使用更新后的 plan（包含用户回答），而不是原始的 pendingBasePlan
-      const basePlan = plan ?? pendingBasePlan;
+      const basePlan = updatedPlan ?? plan ?? pendingBasePlan;
       const taskInputs = pendingTaskInputs as Array<{ target: { sectionType: string; sectionId: string; itemId?: string; fieldPath: string }; currentContent: { fieldValue: string | string[]; renderedText: string; structuredItem: unknown }; relevantRequirements: Array<{ requirementId: string }>; allowedEvidenceRefs: unknown[]; allowedFacts: unknown[]; evidenceBundle: unknown; draftId: string; profileId: string; jobId: string; intensity: TailoringIntensity; jobContext: { title: string; roleMission?: string; responsibilities: string[]; keywords: string[] } }>;
       const rewriteIds = new Set<string>();
       (basePlan?.plannerActions ?? []).filter((item) => item.action === "verified_rewrite").forEach((item) => rewriteIds.add(item.itemId));
@@ -466,14 +470,14 @@ export function JobOptimizationPanel({
         </div> : null}
         {activeQuestion ? <section className="tailoring-suggestion-group"><h3>需要你回答</h3><p>一次只展开一个问题；否定回答会被记录，且不会重复询问。</p><article key={activeQuestion.id} className="tailoring-suggestion-card"><div className="tailoring-question-progress"><strong>问题 {activeQuestionPosition} / {allQuestions.length}</strong><span>已完成 {completedQuestionIds.size}</span><span>剩余 {unansweredQuestions.length}</span></div><strong>{activeQuestion.question}</strong>{activeQuestion.answerType === "proficiency" ? <div className="chip-row" aria-label="选择真实熟练度">{["熟练使用", "熟悉基础", "了解", "正在学习", "没有使用"].map((option) => <button type="button" key={option} className={clarificationAnswer === option ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option)}>{option}</button>)}</div> : activeQuestion.answerType === "boolean" ? <div className="chip-row">{["有", "没有"].map((option) => <button type="button" key={option} className={clarificationAnswer === (option === "有") ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option === "有")}>{option}</button>)}</div> : activeQuestion.answerType === "single_select" ? <div className="chip-row" aria-label="选择你的实际程度">{clarificationOptions(activeQuestion).map((option) => <button type="button" key={option.id} className={clarificationAnswer === option.value ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option.value)}>{option.label}</button>)}</div> : activeQuestion.answerType === "multi_select" ? <div className="chip-row" aria-label="选择适用项">{clarificationOptions(activeQuestion).map((option) => <button type="button" key={option.id} className={Array.isArray(clarificationAnswer) && clarificationAnswer.includes(option.value) ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer((current) => { const values = Array.isArray(current) ? current : []; return values.includes(option.value) ? values.filter((value) => value !== option.value) : [...values, option.value]; })}>{option.label}</button>)}</div> : <label className="field-label" htmlFor={`clarification-${activeQuestion.id}`}>{activeQuestion.answerType === "url" ? "链接" : "你的回答"}<input id={`clarification-${activeQuestion.id}`} name={`clarification-${activeQuestion.id}`} type={activeQuestion.answerType === "url" ? "url" : "text"} autoComplete="off" value={typeof clarificationAnswer === "string" ? clarificationAnswer : ""} onChange={(event) => setClarificationAnswer(event.target.value)} /></label>}<button type="button" className="primary-button" onClick={submitClarificationAnswer}>提交回答</button></article></section> : <div className="info-box" aria-live="polite"><strong>所有问题已回答完毕</strong><p>现在可以继续生成改写建议了。</p></div>}
         <div className="action-row">
-          <button className="secondary-button" onClick={() => { setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setPendingTaskInputs([]); setPendingBasePlan(undefined); setView("overview"); }}>弃用建议</button>
-          <button className="secondary-button" onClick={() => setView("overview")}><ChevronLeft size={16} />返回概览</button>
+          <button className="secondary-button" onClick={() => { if (autoContinueTimer.current) clearTimeout(autoContinueTimer.current); autoContinueTimer.current = undefined; setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setPendingTaskInputs([]); setPendingBasePlan(undefined); setView("overview"); }}>弃用建议</button>
+          <button className="secondary-button" onClick={() => { if (autoContinueTimer.current) clearTimeout(autoContinueTimer.current); autoContinueTimer.current = undefined; setView("overview"); }}><ChevronLeft size={16} />返回概览</button>
           <button className="primary-button" disabled={unansweredQuestions.length > 0} onClick={() => { void continueToSuggestions(); }}>继续生成改写建议</button>
         </div>
       </div> : null}
 
       {view === "suggestions" ? <div className="tailoring-page" data-testid="tailoring-suggestions">
-        <div className="section-heading compact-heading"><div><h2>改写建议</h2><p>可直接采用的建议已选中，需要确认的内容集中在下一步处理。</p></div><button className="secondary-button compact" onClick={() => setSelected(new Set(claims.filter((claim) => claim.decision === "auto_applicable").map((claim) => claim.id)))}>采用全部可直接应用建议</button></div>
+        <div className="section-heading compact-heading"><div><h2>改写建议</h2><p>可直接采用的建议已选中，需要确认的内容集中在下一步处理。</p></div><button className="secondary-button compact" disabled={pending} onClick={() => setSelected(new Set(claims.filter((claim) => claim.decision === "auto_applicable").map((claim) => claim.id)))}>采用全部可直接应用建议</button></div>
         {plannerAssessment ? <div className="info-box" style={{ marginBottom: "0.75rem" }}>
           <strong>AI 评估结果</strong>
           <p>{plannerAssessment.globalNotes ?? "已完成匹配分析。"}</p>
@@ -482,7 +486,7 @@ export function JobOptimizationPanel({
           </p>
         </div> : null}
         {suggestionStatusGroups(claims.slice(0, 5)).map(([group, items]) => <section key={group} className="tailoring-suggestion-group"><h3>{group}</h3>{items.map((claim) => { const suggestion = suggestionsById.get(claim.id); const groupedKeywords = groupTailoringKeywords(claim.keywords); return <article key={claim.id} className="tailoring-suggestion-card">
-          <div className="tailoring-suggestion-status"><span>{decisionLabel(claim)}</span><input type="checkbox" aria-label="采用建议" checked={selected.has(claim.id)} disabled={claim.decision === "blocked"} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(claim.id); else next.delete(claim.id); return next; })} /></div>
+          <div className="tailoring-suggestion-status"><span>{decisionLabel(claim)}</span><input type="checkbox" aria-label="采用建议" checked={selected.has(claim.id)} disabled={pending || claim.decision === "blocked"} onChange={(event) => { const checked = event.currentTarget.checked; setSelected((current) => { const next = new Set(current); if (checked) next.add(claim.id); else next.delete(claim.id); return next; }); }} /></div>
           <header className="tailoring-suggestion-title"><strong>{claim.label ?? sectionLabel(claim.section)}</strong><span>{fieldLocationLabel(claim)}</span></header>
           <div className="tailoring-suggestion-comparison"><p><strong>完整原文：</strong>{renderFieldValue(claim.originalValue ?? claim.currentText)}</p><p><strong>完整改写后：</strong>{renderFieldValue(claim.suggestedValue ?? claim.claimText ?? claim.proposedText)}</p></div>
           <p className="tailoring-suggestion-reason"><strong>修改原因：</strong>{claim.reason}</p>
@@ -492,7 +496,7 @@ export function JobOptimizationPanel({
         {plan?.materialTasks?.length ? <ResultList title={`申请前建议准备 ${plan.materialTasks.length} 项材料`} items={plan.materialTasks.map((item) => item.label)} empty="暂无" /> : null}
         {pending ? <div className="info-box" aria-live="polite"><strong>{progress.step}/3 {progress.step === 1 ? "正在分析岗位要求" : progress.step === 2 ? "正在筛选需要改写的内容" : "正在生成并验证建议"}</strong><p>已完成 {progress.completed} 项　跳过 {progress.skipped} 项　失败 {progress.failed} 项</p><button className="secondary-button compact" type="button" onClick={() => generationController.current?.abort()}><Square size={14} aria-hidden="true" />停止生成</button></div> : null}
         {!claims.length && !pending ? <div className="info-box">{plan?.clarificationQuestions?.length ? "需要补充信息后才能生成部分建议。" : "没有生成可安全应用的具体文本；请检查岗位要求和已确认事实。"}</div> : null}
-        <div className="action-row"><button className="secondary-button" onClick={() => { setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setView("overview"); }}>弃用建议</button><button className="secondary-button" onClick={() => setView("overview")}><ChevronLeft size={16} />返回概览</button><button className="primary-button" onClick={() => setView("apply")}>确认并应用</button></div>
+        <div className="action-row"><button className="secondary-button" disabled={pending} onClick={() => { setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setView("overview"); }}>弃用建议</button><button className="secondary-button" disabled={pending} onClick={() => setView("overview")}><ChevronLeft size={16} />返回概览</button><button className="primary-button" disabled={pending} onClick={() => setView("apply")}>确认并应用</button></div>
       </div> : null}
 
       {view === "apply" ? <div className="tailoring-page" data-testid="tailoring-apply">

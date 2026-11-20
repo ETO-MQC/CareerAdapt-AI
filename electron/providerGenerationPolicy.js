@@ -5,6 +5,12 @@ function isAmdQwenRoute({ baseUrl, model }) {
   catch { return false; }
 }
 
+function isAmdMimoRoute({ baseUrl, model }) {
+  if (model !== "MiMo-V2.6-Flash") return false;
+  try { return new URL(baseUrl).hostname.toLowerCase() === "developer.amd.com.cn"; }
+  catch { return false; }
+}
+
 function resolveQualityGenerationPolicy(settings) {
   if (settings.qualityMaxTokens !== undefined && (!Number.isSafeInteger(settings.qualityMaxTokens) || settings.qualityMaxTokens <= 0)) {
     throw new Error("quality_max_tokens_invalid");
@@ -14,4 +20,4 @@ function resolveQualityGenerationPolicy(settings) {
     : { temperature: 0 };
 }
 
-module.exports = { isAmdQwenRoute, resolveQualityGenerationPolicy };
+module.exports = { isAmdQwenRoute, isAmdMimoRoute, resolveQualityGenerationPolicy };

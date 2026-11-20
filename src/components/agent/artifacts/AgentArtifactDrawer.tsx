@@ -20,6 +20,7 @@ export function AgentArtifactDrawer({
   state,
   workflowState,
   taskState,
+  requestedArtifact,
   onImportAction,
   onArtifactAction,
   onUiAction,
@@ -29,6 +30,7 @@ export function AgentArtifactDrawer({
   state: AgentArtifactDrawerState;
   workflowState: TailorWorkflowViewState;
   taskState?: AgentTaskState;
+  requestedArtifact?: { id: string };
   onImportAction?(message: string): void;
   onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
   onUiAction?(action: AgentUiAction): void;
@@ -41,6 +43,7 @@ export function AgentArtifactDrawer({
   });
   const [selectedArtifactId, setSelectedArtifactId] = useState(() => artifacts[0]?.id);
   const lastImpactRef = useRef<string | undefined>(undefined);
+  const lastRequestedArtifactRef = useRef<{ id: string } | undefined>(undefined);
   const drawerRef = useRef<HTMLElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const target = JobTargetSnapshotSchema.safeParse(taskState?.knownSlots.targetSnapshot);
@@ -60,6 +63,13 @@ export function AgentArtifactDrawer({
       setSelectedArtifactId(impact.id);
     }
   }, [artifacts]);
+
+  useEffect(() => {
+    if (requestedArtifact && requestedArtifact !== lastRequestedArtifactRef.current && artifacts.some(artifact => artifact.id === requestedArtifact.id)) {
+      lastRequestedArtifactRef.current = requestedArtifact;
+      setSelectedArtifactId(requestedArtifact.id);
+    }
+  }, [requestedArtifact, artifacts]);
 
   useEffect(() => {
     window.localStorage.setItem(ARTIFACT_WIDTH_KEY, String(width));

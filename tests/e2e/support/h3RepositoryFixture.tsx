@@ -19,6 +19,14 @@ export default function H1qRepositoryFixture() {
     if (!session) throw new Error("fixture_session_missing");
     setInspection(JSON.stringify(await resolveCareerAgentContext(session, repository)));
   }
+  async function markCompletedIntake() {
+    const repository = new WorkspaceRepository(careerAdaptDb);
+    const session = await repository.getAgentSession(sessionId);
+    if (!session?.taskState) throw new Error("fixture_task_missing");
+    await repository.saveAgentSession({ ...session, taskState: { ...session.taskState, workflowId: "guided_profile_intake",
+      rootGoal: "profile_intake", goal: "profile_intake", completionStatus: "completed" } }, session.sessionRevision);
+    setInspection("completed-intake-ready");
+  }
   async function seed() {
     const repository = new WorkspaceRepository(careerAdaptDb);
     const now = new Date().toISOString();
@@ -51,5 +59,5 @@ export default function H1qRepositoryFixture() {
     }
     setResult(saved.id);
   }
-  return <main><button onClick={() => { void seed().catch(error => setResult(`ERROR: ${String(error)}`)); }}>Seed confirmed Profile</button><output data-testid="seed-result">{result}</output><label>Session ID<input value={sessionId} onChange={event => setSessionId(event.target.value)} /></label><button onClick={() => { void inspect().catch(error => setInspection(`ERROR: ${String(error)}`)); }}>Inspect context</button><output data-testid="context-result">{inspection}</output></main>;
+  return <main><button onClick={() => { void seed().catch(error => setResult(`ERROR: ${String(error)}`)); }}>Seed confirmed Profile</button><output data-testid="seed-result">{result}</output><label>Session ID<input value={sessionId} onChange={event => setSessionId(event.target.value)} /></label><button onClick={() => { void inspect().catch(error => setInspection(`ERROR: ${String(error)}`)); }}>Inspect context</button><button onClick={() => { void markCompletedIntake().catch(error => setInspection(`ERROR: ${String(error)}`)); }}>Mark completed intake</button><output data-testid="context-result">{inspection}</output></main>;
 }

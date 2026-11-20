@@ -117,6 +117,25 @@ describe("AI-first workspace foundations", () => {
     expect(artifacts).toHaveLength(1);
   });
 
+  it("selects a requested artifact and leaves later manual tab selection intact", () => {
+    const shared = { entityType: "job" as const, status: "active" as const,
+      createdAt: "2026-08-02T10:00:00.000Z", updatedAt: "2026-08-02T10:00:00.000Z" };
+    const artifacts = [
+      { ...shared, id: "impact", kind: "resume_impact" as const, title: "经历与岗位影响", entityId: "impact-1" },
+      { ...shared, id: "fit", kind: "job_fit_overview" as const, title: "岗位匹配分析", entityId: "job-1" }
+    ];
+    const request = { id: "fit" };
+    const props = { artifacts, state: "split" as const,
+      workflowState: { step: "select_resume" as const, busy: false, diffs: [], confirmedRequirementIds: [] }, onStateChange: vi.fn() };
+    const { rerender } = render(<AgentArtifactDrawer {...props} requestedArtifact={request} />);
+    expect(screen.getByRole("tab", { name: "岗位匹配分析" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "经历与岗位影响" }));
+    rerender(<AgentArtifactDrawer {...props} artifacts={[...artifacts]} requestedArtifact={request} />);
+    expect(screen.getByRole("tab", { name: "经历与岗位影响" })).toHaveAttribute("aria-selected", "true");
+    rerender(<AgentArtifactDrawer {...props} requestedArtifact={{ id: "fit" }} />);
+    expect(screen.getByRole("tab", { name: "岗位匹配分析" })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("expands a collapsed desktop artifact rail back to split and renders no backdrop", () => {
     const onStateChange = vi.fn();
     const artifacts = [{

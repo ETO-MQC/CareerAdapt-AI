@@ -2,3 +2,4 @@ export function isAmdQwenRoute(settings: { baseUrl: string; model: string }): bo
 export function resolveQualityGenerationPolicy(settings: { baseUrl: string; model: string; qualityMaxTokens?: number }): {
   temperature: number; reasoningEffort?: "low"; maxTokens?: number;
 };
+export function isAmdMimoRoute(settings: { baseUrl: string; model: string }): boolean;

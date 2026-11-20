@@ -223,6 +223,7 @@ export function ResumeWorkspace() {
   const handledImportRequestRef = useRef<string | undefined>(undefined);
   const pendingImportedBranchIdRef = useRef<string | undefined>(undefined);
   const branchesRef = useRef<ResumeBranch[]>([]);
+  const branchSelectionVersionRef = useRef(0);
   const editTextsRef = useRef<Record<string, string>>({});
   function updateContentDraft(itemId: string, text: string) {
     const nextDrafts = { ...editTextsRef.current, [itemId]: text };
@@ -794,6 +795,7 @@ export function ResumeWorkspace() {
   }
 
   const openResumeBranch = useCallback((branchId: string) => {
+    branchSelectionVersionRef.current += 1;
     setSelectedBranchId(branchId);
   }, []);
 
@@ -852,6 +854,7 @@ export function ResumeWorkspace() {
       return;
     }
     let active = true;
+    const selectionVersion = branchSelectionVersionRef.current;
     async function loadLists() {
       const [nextDrafts, nextBranches, savedState] = await Promise.all([
         repository.listJobAdaptationDrafts(profile!.id),
@@ -861,8 +864,11 @@ export function ResumeWorkspace() {
       if (!active) {
         return;
       }
-      setDrafts(nextDrafts);
-      setBranches(nextBranches);
+      const selectionUnchanged = branchSelectionVersionRef.current === selectionVersion;
+      if (selectionUnchanged) {
+        setDrafts(nextDrafts);
+        setBranches(nextBranches);
+      }
       const parsed = parseWorkbenchState(savedState?.value);
       const requestedParams = new URLSearchParams(window.location.search);
       const requestedBranchId = requestedParams.get("branchId");
@@ -875,7 +881,12 @@ export function ResumeWorkspace() {
         : parsed.activeBranchId && nextBranches.some((branch) => branch.id === parsed.activeBranchId)
           ? parsed.activeBranchId
           : BRANCH_LIST_SENTINEL;
-      setSelectedBranchId(branchIdToRestore);
+      if (selectionUnchanged) setSelectedBranchId((current) => {
+        if (pendingImportedBranchId && nextBranches.some((branch) => branch.id === pendingImportedBranchId)) return pendingImportedBranchId;
+        if (requestedBranchId && nextBranches.some((branch) => branch.id === requestedBranchId)) return requestedBranchId;
+        return nextBranches.some((branch) => branch.id === current && branch.profileId === profile!.id)
+          ? current : branchIdToRestore;
+      });
       if (branchIdToRestore === pendingImportedBranchId) pendingImportedBranchIdRef.current = undefined;
       if (parsed.templateId) {
         setTemplateId(parsed.templateId);

@@ -1,0 +1,56 @@
+import { expect, test } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { installCoreWritingProvider, readStore } from "../e2e/support/p51CoreWorkflow";
+import { openManualPageTab } from "../e2e/support/g7b2Ui";
+
+test("deterministic job revision exports the saved version to a real PDF", async ({ page }, info) => {
+  test.setTimeout(150_000);
+  await page.goto("/");
+  await page.getByRole("button", { name: "跳过，先体验其他功能" }).click();
+  await page.getByRole("link", { name: "我的简历", exact: true }).click();
+  await page.getByRole("button", { name: /从个人资料库创建/ }).click();
+  await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+  const general = (await readStore(page, "resumeBranches")).find(row => row.branchPurpose === "general" && row.currentRevisionId)!;
+  const job = (await readStore(page, "jobDescriptions")).find(row => String(row.title).includes("数据分析"))!;
+  expect(general).toBeTruthy();
+  expect(job).toBeTruthy();
+  await installCoreWritingProvider(page);
+  await page.goto(`/jobs?jobId=${encodeURIComponent(String(job.id))}`);
+  await page.getByRole("radio", { name: /优化已有简历/ }).click();
+  await page.getByLabel("来源通用简历").selectOption(String(general.id));
+  await page.getByTestId("analyze-and-generate-job-resume").click();
+  await expect(page).toHaveURL(/\/resume\?.*branchId=/, { timeout: 25_000 });
+  const branchId = new URL(page.url()).searchParams.get("branchId")!;
+  const before = (await readStore(page, "resumeBranches")).find(row => row.id === branchId)!;
+  const revisionsBefore = await readStore(page, "resumeRevisions");
+  const panel = page.getByTestId("job-optimization-panel");
+  await panel.getByRole("button", { name: "生成改写建议", exact: true }).click();
+  await expect.poll(async () => await panel.getByLabel("采用建议").first().isVisible() || await panel.getByRole("button", { name: "没有", exact: true }).isVisible(), { timeout: 30_000 }).toBe(true);
+  const no = panel.getByRole("button", { name: "没有", exact: true });
+  if (await no.isVisible()) {
+    await no.click();
+    await panel.getByRole("button", { name: "提交回答", exact: true }).click();
+    await panel.getByRole("button", { name: "继续生成改写建议", exact: true }).click();
+  }
+  await expect(panel.getByLabel("采用建议").first()).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 30_000 });
+  await panel.getByRole("button", { name: "采用全部可直接应用建议", exact: true }).click();
+  await panel.getByRole("button", { name: "确认并应用", exact: true }).click();
+  expect((await readStore(page, "resumeBranches")).find(row => row.id === branchId)).toEqual(before);
+  await panel.getByRole("button", { name: "应用选择并保存新版本", exact: true }).click();
+  await expect.poll(async () => (await readStore(page, "resumeBranches")).find(row => row.id === branchId)?.revision, { timeout: 30_000 }).toBe(Number(before.revision) + 1);
+  const after = (await readStore(page, "resumeBranches")).find(row => row.id === branchId)!;
+  expect(await readStore(page, "resumeRevisions")).toHaveLength(revisionsBefore.length + 1);
+  expect((await readStore(page, "resumeBranches")).find(row => row.id === general.id)).toEqual(general);
+  await openManualPageTab(page);
+  const request = page.waitForRequest(item => item.url().includes("/api/resume-export/pdf") && item.method() === "POST");
+  const download = page.waitForEvent("download", { timeout: 90_000 });
+  await page.getByRole("button", { name: "下载 PDF", exact: true }).click();
+  expect((await request).postDataJSON()).toMatchObject({ snapshot: { branchId, currentRevisionId: after.currentRevisionId } });
+  const pdf = info.outputPath("job-revision.pdf");
+  await (await download).saveAs(pdf);
+  expect(readFileSync(pdf).subarray(0, 5).toString()).toBe("%PDF-");
+  const binary = ["E:/Pycharm/Lib/poppler/Library/bin/pdftotext.exe", "C:/Users/mqcin/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdftotext.exe"].find(existsSync) ?? "pdftotext";
+  expect(execFileSync(binary, [pdf, "-"], { encoding: "utf8" })).toContain("需求梳理");
+});

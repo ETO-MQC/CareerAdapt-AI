@@ -111,6 +111,22 @@ describe("P4.6g Hermes provider credential binding", () => {
     expect(JSON.stringify(prepared.childEnvironment)).not.toContain("wrong-openai-secret");
   });
 
+  it("does not pass unrelated candidate provider keys into the Hermes process", () => {
+    const prepared = prepareHermesEnvironment({
+      HERMES_PROVIDER: "openai-compatible",
+      HERMES_BASE_URL: "https://api.deepseek.com",
+      HERMES_MODEL: "deepseek-flash",
+      HERMES_CUSTOM_CAREERADAPT_API_KEY: "active-test-key",
+      CAREERADAPT_DEEPSEEK_API_KEY: "deepseek-test-key",
+      CAREERADAPT_MIMO_API_KEY: "mimo-test-key"
+    }, { hermesRuntimeRoot: "C:/careeradapt-missing-hermes-runtime" });
+    expect(prepared.childEnvironment).toMatchObject({
+      HERMES_CUSTOM_CAREERADAPT_API_KEY: "active-test-key",
+      CAREERADAPT_DEEPSEEK_API_KEY: "",
+      CAREERADAPT_MIMO_API_KEY: ""
+    });
+  });
+
   it("does not reuse an OpenAI key for OpenRouter or arbitrary custom endpoints", () => {
     expect(providerCredential({
       HERMES_PROVIDER: "openrouter",

@@ -19,8 +19,6 @@ const {
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const host = "127.0.0.1";
 const environment = loadCareerAdaptEnvironment(projectRoot);
-environment.HERMES_RUNTIME_ROOT = environment.HERMES_RUNTIME_ROOT
-  || path.join(projectRoot, ".electron-build", "hermes-runtime-v4");
 environment.HERMES_RUNTIME_ROOT = await ensureDevelopmentHermesBundle(projectRoot, environment);
 const preferredAppPort = parsePort(environment.CAREERADAPT_APP_PORT || environment.PORT, 3000);
 const preferredAppUrl = `http://${host}:${preferredAppPort}`;

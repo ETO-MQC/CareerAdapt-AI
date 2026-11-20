@@ -1,5 +1,5 @@
 import "server-only";
-import { isAmdQwenRoute } from "../../../electron/providerGenerationPolicy";
+import { isAmdMimoRoute, isAmdQwenRoute } from "../../../electron/providerGenerationPolicy";
 import type { AiSettings } from "@/services/storage/aiSettings";
 import {
   resolveEffectiveAiConfiguration,
@@ -30,6 +30,7 @@ export type OpenAiCompatibleRequest = {
   images?: string[];
   stream?: boolean;
   reasoningEffort?: "low";
+  thinkingMode?: "enabled" | "disabled";
   signal?: AbortSignal;
 };
 
@@ -52,6 +53,8 @@ export class OpenAiCompatibleProvider {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly amdQwen: boolean;
+  private readonly amdMimo: boolean;
+  private readonly deepseek: boolean;
 
   /**
  * Accepts either raw renderer settings or an already-resolved configuration.
@@ -68,6 +71,8 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
     this.baseUrl = configuration.baseUrl;
     this.apiKey = configuration.apiKey;
     this.amdQwen = isAmdQwenRoute({ baseUrl: this.baseUrl, model: this.model });
+    this.amdMimo = isAmdMimoRoute({ baseUrl: this.baseUrl, model: this.model });
+    this.deepseek = isDeepSeekRoute(this.baseUrl, this.model);
     this.configurationDiagnostic = safeAiConfigurationDiagnostic(configuration);
   }
 
@@ -93,6 +98,8 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
       },
       body: JSON.stringify({
         model: this.model,
+        ...(this.amdMimo ? { max_tokens: 4096 } : {}),
+        ...(this.deepseek && request.thinkingMode ? { thinking: { type: request.thinkingMode } } : {}),
         ...(request.stream ? { stream: true } : {}),
         ...(this.amdQwen
           ? { reasoning_effort: "low" } : {}),
@@ -193,6 +200,7 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
 
   async completeWithTools(request: AgentModelRequest & { signal?: AbortSignal }): Promise<AgentModelResult> {
     this.assertUsable();
+    const thinking = this.deepseek ? deepSeekThinkingMode(request) : undefined;
     const response = await fetchWithTransportClassification(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
@@ -201,9 +209,11 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
       },
       body: JSON.stringify({
         model: this.model,
+        ...(this.amdMimo ? { max_tokens: 4096 } : {}),
+        ...(thinking ? { thinking: { type: thinking } } : {}),
         messages: [
           { role: "system", content: request.systemPrompt },
-          ...request.messages.map(toOpenAiMessage)
+          ...request.messages.map(message => toOpenAiMessage(message, thinking === "enabled" && request.tools.length > 0))
         ],
         tools: request.tools.map((tool) => ({
           type: "function",
@@ -213,7 +223,7 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
             parameters: tool.inputSchema
           }
         })),
-        tool_choice: request.tools.length ? "auto" : undefined,
+        tool_choice: request.tools.length ? request.toolChoice ?? "auto" : undefined,
         ...(this.amdQwen ? { reasoning_effort: "low" } : {}),
         temperature: 0.1
       }),
@@ -221,24 +231,36 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
     });
 
     if (!response.ok) {
-      if ([400, 404, 405, 422].includes(response.status)) return this.completeWithStructuredActions(request);
+      if (!this.deepseek && [400, 404, 405, 422].includes(response.status)) return this.completeWithStructuredActions(request);
       throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`, transportDiagnosticForHttpStatus(response.status));
     }
     const payload = await response.json();
     const choice = payload?.choices?.[0];
     const message = choice?.message;
+    if (this.deepseek && choice?.finish_reason === "length") throw createAiProviderError("model_output_truncated", "Provider stopped because the output length limit was reached.");
+    if (this.deepseek && typeof choice?.finish_reason !== "string") throw createAiProviderError("incomplete_model_output", "Provider response has no terminal finish reason.");
+    if (this.deepseek && Array.isArray(message?.tool_calls) && message.tool_calls.some((call: Record<string, unknown>) => {
+      const fn = objectRecord(call.function);
+      return typeof call.id !== "string" || !call.id.trim() || typeof fn?.name !== "string" || !fn.name.trim();
+    })) throw createAiProviderError("invalid_tool_call", "Provider returned an incomplete tool call.");
     const toolCalls = Array.isArray(message?.tool_calls)
       ? message.tool_calls.map((call: Record<string, unknown>, index: number) => {
           const fn = call.function as Record<string, unknown> | undefined;
           return {
             id: typeof call.id === "string" ? call.id : `tool-call-${index + 1}`,
             name: String(fn?.name ?? ""),
-            arguments: parseToolArguments(fn?.arguments)
+            arguments: this.deepseek ? parseDeepSeekToolArguments(fn?.arguments) : parseToolArguments(fn?.arguments)
           };
         })
       : [];
+    if (this.deepseek && toolCalls.length && choice.finish_reason !== "tool_calls") throw createAiProviderError("invalid_tool_call", "Provider returned an incomplete tool call.");
+    if (this.deepseek && thinking === "enabled" && toolCalls.length && typeof message?.reasoning_content !== "string") {
+      throw createAiProviderError("missing_tool_reasoning", "Provider did not return the thinking-mode tool continuation state.");
+    }
+    if (this.deepseek && !toolCalls.length && (typeof message?.content !== "string" || !message.content.trim())) throw createAiProviderError("empty_model_output", "Provider returned empty content.");
     return AgentModelResultSchema.parse({
       text: typeof message?.content === "string" && message.content.trim() ? message.content : undefined,
+      ...(this.deepseek && thinking === "enabled" && typeof message?.reasoning_content === "string" ? { reasoningContent: message.reasoning_content } : {}),
       toolCalls: toolCalls.length ? toolCalls : undefined,
       stopReason: toolCalls.length ? "tool_calls" : choice?.finish_reason === "length" ? "length" : "final",
       provider: this.provider,
@@ -253,6 +275,7 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
 
   async *streamTurn(request: AgentModelRequest & { signal?: AbortSignal }): AsyncGenerator<AgentModelStreamEvent> {
     this.assertUsable();
+    const thinking = this.deepseek ? deepSeekThinkingMode(request) : undefined;
     const response = await fetchWithTransportClassification(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
@@ -261,36 +284,41 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
       },
       body: JSON.stringify({
         model: this.model,
+        ...(this.amdMimo ? { max_tokens: 4096 } : {}),
+        ...(thinking ? { thinking: { type: thinking } } : {}),
         stream: true,
         stream_options: { include_usage: true },
         ...(this.amdQwen ? { reasoning_effort: "low" } : {}),
         messages: [
           { role: "system", content: request.systemPrompt },
-          ...request.messages.map(toOpenAiMessage)
+          ...request.messages.map(message => toOpenAiMessage(message, thinking === "enabled" && request.tools.length > 0))
         ],
         tools: request.tools.map((tool) => ({
           type: "function",
           function: { name: tool.name, description: tool.description, parameters: tool.inputSchema }
         })),
-        tool_choice: request.tools.length ? "auto" : undefined,
+        tool_choice: request.tools.length ? request.toolChoice ?? "auto" : undefined,
         temperature: 0.1
       }),
       signal: request.signal
     });
     if (!response.ok) {
       throw createAiProviderError(
-        [400, 404, 405, 422].includes(response.status) ? "native_tool_streaming_unsupported" : `provider_http_${response.status}`,
+        !this.deepseek && [400, 404, 405, 422].includes(response.status) ? "native_tool_streaming_unsupported" : `provider_http_${response.status}`,
         `Provider returned HTTP ${response.status}.`,
         transportDiagnosticForHttpStatus(response.status)
       );
     }
     if (!response.body) throw createAiProviderError("empty_stream_body", "Provider returned an empty stream body.");
 
-    const calls = new Map<number, { id: string; name: string; argumentsText: string }>();
+    const calls = new Map<number, { id: string; name: string; argumentsText: string; receivedId: boolean }>();
     let finishReason: unknown;
     let assistantText = "";
+    let reasoningContent = "";
+    let reasoningSeen = false;
     const responseShapes = new Set<string>();
     for await (const payload of parseOpenAiJsonSse(response.body)) {
+      if (payload.error) throw createAiProviderError("provider_stream_error", "Provider reported a stream error.");
       for (const shape of safeProviderStreamShape(payload)) responseShapes.add(shape);
       const usage = objectRecord(payload.usage);
       if (usage) {
@@ -305,6 +333,10 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
       finishReason = choice.finish_reason ?? finishReason;
       const delta = objectRecord(choice.delta);
       if (!delta) continue;
+      if (this.deepseek && thinking === "enabled" && typeof delta.reasoning_content === "string") {
+        reasoningSeen = true;
+        reasoningContent += delta.reasoning_content;
+      }
       if (typeof delta.content === "string" && delta.content) {
         const normalized = normalizeProviderFrame(assistantText, delta.content);
         if (normalized) {
@@ -322,11 +354,12 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
         const id = typeof part.id === "string" ? part.id : prior?.id ?? `tool-call-${index + 1}`;
         const name = typeof fn?.name === "string" ? fn.name : prior?.name ?? "";
         if (!prior) {
-          calls.set(index, { id, name, argumentsText: "" });
+          calls.set(index, { id, name, argumentsText: "", receivedId: typeof part.id === "string" && Boolean(part.id.trim()) });
           yield { type: "tool_call_start", index, id, name };
         } else {
           prior.id = id;
           prior.name = name;
+          if (typeof part.id === "string" && part.id.trim()) prior.receivedId = true;
         }
         if (typeof fn?.arguments === "string" && fn.arguments) {
           calls.get(index)!.argumentsText += fn.arguments;
@@ -334,11 +367,20 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
         }
       }
     }
+    if (this.deepseek && finishReason === "length") throw createAiProviderError("model_output_truncated", "Provider stopped because the output length limit was reached.");
+    if (this.deepseek && typeof finishReason !== "string") throw createAiProviderError("incomplete_model_output", "Provider stream has no terminal finish reason.");
+    if (this.deepseek && !calls.size && !assistantText.trim()) throw createAiProviderError("empty_model_output", "Provider returned empty content.");
+    if (this.deepseek && calls.size && (finishReason !== "tool_calls" || [...calls.values()].some(call => !call.receivedId || !call.name.trim()))) {
+      throw createAiProviderError("invalid_tool_call", "Provider returned an incomplete tool call.");
+    }
+    if (this.deepseek && thinking === "enabled" && calls.size && !reasoningSeen) {
+      throw createAiProviderError("missing_tool_reasoning", "Provider stream did not return the thinking-mode tool continuation state.");
+    }
     for (const [index, call] of [...calls.entries()].sort(([left], [right]) => left - right)) {
       yield {
         type: "tool_call_complete",
         index,
-        call: { id: call.id, name: call.name, arguments: parseToolArguments(call.argumentsText) }
+        call: { id: call.id, name: call.name, arguments: this.deepseek ? parseDeepSeekToolArguments(call.argumentsText) : parseToolArguments(call.argumentsText) }
       };
     }
     yield {
@@ -346,6 +388,7 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
       stopReason: calls.size ? "tool_calls" : finishReason === "length" ? "length" : "final",
       provider: this.provider,
       model: this.model,
+      ...(this.deepseek && reasoningSeen ? { reasoningContent } : {}),
       providerResponseShape: [...responseShapes].slice(0, 20)
     };
   }
@@ -360,6 +403,8 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
       },
       body: JSON.stringify({
         model: this.model,
+        ...(this.amdMimo ? { max_tokens: 4096 } : {}),
+        ...(this.deepseek && request.thinkingMode ? { thinking: { type: request.thinkingMode } } : {}),
         stream: true,
         messages: [
           { role: "system", content: request.systemPrompt },
@@ -379,6 +424,26 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
     }
 
     let output = "";
+    if (this.amdMimo || this.deepseek) {
+      let finishReason: string | undefined;
+      for await (const frame of parseOpenAiJsonSse(response.body)) {
+        if (frame.error) throw createAiProviderError("provider_stream_error", "Provider reported a stream error.");
+        const choice = Array.isArray(frame.choices) ? objectRecord(frame.choices[0]) : undefined;
+        const message = objectRecord(choice?.delta ?? choice?.message);
+        const content = typeof message?.content === "string" ? message.content : "";
+        const delta = normalizeProviderFrame(output, content);
+        if (delta) {
+          output += delta;
+          if (output.length > request.maxOutputChars) throw createAiProviderError("model_output_too_large", "Provider output exceeded the task limit.");
+          yield { type: "delta", delta };
+        }
+        if (typeof choice?.finish_reason === "string") finishReason = choice.finish_reason;
+      }
+      if (finishReason === "length") throw createAiProviderError("model_output_truncated", "Provider stopped because the output length limit was reached.");
+      if (!output.trim()) throw createAiProviderError("empty_model_output", "Provider returned empty content.");
+      yield { type: "done", output, provider: this.provider, model: this.model, outputLength: output.length };
+      return;
+    }
     for await (const delta of parseOpenAiCompatibleSse(response.body)) {
       output += delta;
       if (output.length > request.maxOutputChars) {
@@ -494,11 +559,15 @@ function parseJsonContent(content: string) {
   }
 }
 
-function toOpenAiMessage(message: AgentModelMessage) {
+function toOpenAiMessage(message: AgentModelMessage, requireToolReasoning = false) {
   if (message.role === "assistant" && message.toolCalls?.length) {
+    if (requireToolReasoning && message.reasoningContent === undefined) {
+      throw createAiProviderError("missing_tool_reasoning", "The previous thinking-mode tool call is missing its provider continuation state.");
+    }
     return {
       role: "assistant",
       content: message.content || null,
+      ...(requireToolReasoning ? { reasoning_content: message.reasoningContent } : {}),
       tool_calls: message.toolCalls.map((call) => ({
         id: call.id,
         type: "function",
@@ -514,7 +583,29 @@ function toOpenAiMessage(message: AgentModelMessage) {
       name: message.name
     };
   }
-  return { role: message.role, content: message.content };
+  return { role: message.role, content: message.content,
+    ...(requireToolReasoning && message.role === "assistant" && message.reasoningContent !== undefined ? { reasoning_content: message.reasoningContent } : {}) };
+}
+
+function isDeepSeekRoute(baseUrl: string, model: string) {
+  try { return new URL(baseUrl).hostname.toLowerCase() === "api.deepseek.com" && model === "deepseek-flash"; }
+  catch { return false; }
+}
+
+function deepSeekThinkingMode(request: AgentModelRequest) {
+  if (request.toolChoice === "required" || typeof request.toolChoice === "object") return "disabled" as const;
+  return request.thinkingMode ?? (request.tools.length ? "disabled" : "enabled");
+}
+
+function parseDeepSeekToolArguments(value: unknown): Record<string, unknown> {
+  if (typeof value !== "string" || !value.trim()) throw createAiProviderError("invalid_tool_arguments", "Provider returned incomplete tool arguments.");
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid_object");
+    return parsed as Record<string, unknown>;
+  } catch {
+    throw createAiProviderError("invalid_tool_arguments", "Provider returned invalid tool arguments.");
+  }
 }
 
 function safeProviderResponseShape(payload: Record<string, unknown>) {

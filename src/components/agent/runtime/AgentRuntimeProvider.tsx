@@ -9,6 +9,7 @@ import { AgentHostStore, getActiveTailoringQuestionProjection, type TailoringAns
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import { CareerToolGateway, CareerToolGatewayExecutor, type CareerToolContract } from "@/agent/tools/CareerToolGateway";
 import { AgentRuntimeEventBus } from "@/agent/runtime/agentRuntimeEventBus";
+import { sanitizeReasoningEvent } from "@/agent/runtime/sanitizeReasoningEvent";
 import type { AgentRuntimeTurnInput } from "@/agent/runtime/agentRuntime";
 import type { RuntimeUserEvent } from "@/agent/runtime/RuntimeUserEvent";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
@@ -430,9 +431,9 @@ function createAgentHost() {
               })
             }
           : rawEventData;
-        const observedEvent = eventData
+        const observedEvent = sanitizeReasoningEvent(eventData
           ? { ...event, data: eventData }
-          : event;
+          : event);
         if (runtimeShell && eventData?.fallbackUsed !== true) {
           await state.applyRuntimeEvent(observedEvent, runtimeShell.assistantMessageId);
         }
@@ -600,7 +601,30 @@ function createAgentHost() {
       // Explicit Career writes are Host-owned transactions. A confirmation
       // click must not open a new Hermes planning turn to decide whether the
       // already-reviewed write should happen.
-      return state.resolveConfirmation(event.confirmed, input.pageContext, session);
+      const run = session.hermesRun;
+      const assistant = session.messages.find(message => message.role === "assistant" && message.turnId === run?.turnId
+        && message.id === session.activeTurn?.visibleAssistantMessageId);
+      const compositionApproval = event.confirmed && session.pendingConfirmation.toolName === "career.workflow.compose_resume";
+      const result = await state.resolveConfirmation(event.confirmed, input.pageContext, session);
+      if (compositionApproval && result?.taskState?.workflowId === "compose_resume"
+        && result.taskState.completionStatus === "completed" && run && assistant
+        && ["queued", "running", "waiting_for_approval", "stopping"].includes(run.status)) {
+        const reason = createRunStopReason({ requestedBy: "agent_runtime_provider", reasonCode: "artifact_action_superseded_run",
+          sourceComponent: "AgentRuntimeProvider.runUserEvent", sessionId: session.id, logicalTurnId: run.turnId, runId: run.runId });
+        let stopped;
+        try {
+          stopped = await hermesRuntime.stopCurrentRun(run.runId, reason);
+        } catch (error) {
+          throw new Error("简历已保存，但原 AI 运行未能停止；请停止后再继续。", { cause: error });
+        }
+        if (!["completed", "failed", "cancelled"].includes(stopped.status)) {
+          throw new Error("简历已保存，原 AI 运行仍在停止，请稍后再继续。");
+        }
+        return await state.applyRuntimeEvent({ type: stopped.status === "completed" ? "turn_completed" : "turn_failed",
+          sessionId: session.id, turnId: run.turnId, timestamp: new Date().toISOString(),
+          data: { runHandle: { ...run, status: stopped.status } } }, assistant.id) ?? result;
+      }
+      return result;
     }
     if (event.type === "confirmation") {
       // A stale confirmation event must not be reinterpreted as a new AI turn.

@@ -223,6 +223,36 @@ describe("P4.5c.1.2 confirmed composition write boundary", () => {
     expect(branches).toHaveLength(1);
     expect(await fixture.repository.listResumeRevisions(branches[0].id)).toHaveLength(1);
   });
+  it("settles the original Hermes run after a confirmed composition starts a deterministic turn", async () => {
+    const fixture = await createFixture();
+    const host = fixture.createHost("session-idempotent");
+    const session = AgentSessionSchema.parse({ ...fixture.sessions.get("session-idempotent")!, taskState: undefined, workflowState: undefined });
+    await host.adoptDurably(session);
+    const shell = await host.beginRuntimeShell({ session, userMessage: "根据资料创建通用简历", runtimeId: "hermes" });
+    const result = { ok: true, data: { status: "waiting_for_confirmation", workflowStage: "review_composition",
+      workflowCheckpoint: { ...fixture.checkpoint, kind: "resume_composition", proposal: fixture.checkpoint.compositionResult.proposal } } };
+    await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: session.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.workflow.compose_resume", operationId: "compose-plan", data: { result } }, shell.assistantMessageId);
+    const pending = await host.applyRuntimeEvent({ type: "approval_required", sessionId: session.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.workflow.compose_resume", operationId: "compose-approval",
+      data: { contract: { sourceToolName: "career.workflow.compose_resume" }, input: { mode: "general", profileId: fixture.profile.id, expectedProfileRevision: fixture.profile.version } }
+    }, shell.assistantMessageId);
+    const running = await host.adoptDurably({ ...pending!, hermesRun: { runId: "original-run", hermesSessionId: "original-hermes-session",
+      careerAgentSessionId: session.id, turnId: shell.turnId, status: "running", startedAt: new Date().toISOString(), lastEventAt: new Date().toISOString() } });
+    const completed = await host.resolveConfirmation(true, fixture.pageContext(session.id), running!);
+    expect(completed?.taskState?.completionStatus).toBe("completed");
+    await host.adoptDurably({ ...completed!, pendingConfirmation: pending!.pendingConfirmation, pendingToolCall: pending!.pendingToolCall });
+    await host.applyRuntimeEvent({ type: "turn_completed", sessionId: session.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), message: "其他运行", data: { runHandle: { runId: "different-run" } } }, shell.assistantMessageId);
+    expect(host.getSnapshot().activeSession?.hermesRun?.status).toBe("running");
+    expect(host.getSnapshot().activeSession?.pendingConfirmation?.operationId).toBe("compose-approval");
+    await host.applyRuntimeEvent({ type: "turn_completed", sessionId: session.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), message: "已完成", data: { runHandle: { runId: "original-run" } } }, shell.assistantMessageId);
+    const final = host.getSnapshot().activeSession!;
+    expect(final.taskState?.completionStatus).toBe("completed");
+    expect(final.pendingConfirmation).toBeUndefined();
+    expect(final.hermesRun?.status).toBe("completed");
+  });
   it("preserves the proposal on Repository failure and recovers the same confirmation without duplicate Revisions", async () => {
     const fixture = await createFixture();
     const host = fixture.createHost("session-idempotent");

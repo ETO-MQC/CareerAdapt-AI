@@ -13,7 +13,12 @@ it("UX012 compose fixture requires a real Resume summary when the Run has no Hos
   try {
     expect((await next()).tool_calls[0].function.name).toBe(list);
     messages.push({ role: "tool", name: list, content: JSON.stringify({ ok: true, data: { resumes: [] } }) });
+    const current = (await next()).tool_calls[0].function;
+    expect(current.name).toBe(get);
+    expect(JSON.parse(current.arguments)).toEqual({ profileId: "current" });
+    messages.push({ role: "tool", name: get, content: JSON.stringify({ ok: false, code: "career_session_binding_required" }) });
     expect((await next()).content).toContain("C02COMPOSEMISSINGPROFILE");
+    messages.pop();
     messages[1] = { role: "tool", name: list, content: JSON.stringify({ ok: true, data: {
       resumes: [{ id: "official-import-source", purpose: "general", profileId: "official-import-profile" }]
     } }) };

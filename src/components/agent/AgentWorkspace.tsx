@@ -13,7 +13,7 @@ import {
 import type { AgentArtifactAction, AgentOption, AgentUiAction, AgentWorkflowControl } from "@/agent/contracts/agentActions";
 import { createQuickActionIntent, type AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
-import { deriveAgentTurnLifecycle } from "@/agent/runtime/agentTurnLifecycle";
+import { activeFitNextActionMessage, deriveAgentTurnLifecycle } from "@/agent/runtime/agentTurnLifecycle";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import { useAgentHost } from "@/components/agent/runtime/AgentRuntimeProvider";
 import {
@@ -163,6 +163,7 @@ export function AgentWorkspace() {
       ? stored
       : compact ? "overlay" : "split";
   });
+  const [requestedArtifact, setRequestedArtifact] = useState<{ id: string }>();
   const [draftsBySession, setDraftsBySession] = useState<SessionComposerDrafts>(readSessionComposerDrafts);
   const draftsBySessionRef = useRef(draftsBySession);
   const mountedRef = useRef(true);
@@ -425,12 +426,15 @@ export function AgentWorkspace() {
       const workflowCheckpointAnswer = input.attachments.length === 0
         && Boolean(input.text.trim())
         && Boolean(submitSession.taskState?.workflowUserInputCheckpoint);
+      const fitNextActionAnswer = input.attachments.length === 0
+        && Boolean(input.text.trim())
+        && Boolean(activeFitNextActionMessage(submitSession));
       // The registered source belongs to the pending Turn now. Keep the composer
       // free for the next queued Turn while Hermes streams the current one.
       setAttachmentsBySession((current) => ({ ...current, [submitSession.id]: (current[submitSession.id] ?? []).filter((attachment) => !input.attachments.some((sent) => sent.clientId === attachment.clientId)) }));
       const result = input.attachments.length === 0 && isProfileIntakeFinalizationMessage(submitSession, input.text)
         ? await host.state.dispatch({ type: "message", text: input.text }, { session: submitSession, pageContext: pageContext(submitSession) })
-        : tailoringQuestionAnswer || workflowCheckpointAnswer
+        : tailoringQuestionAnswer || workflowCheckpointAnswer || fitNextActionAnswer
         ? await host.runUserEvent(
             { type: "text_message", text: input.text },
             { session: submitSession, pageContext: pageContext(submitSession) }
@@ -528,7 +532,10 @@ export function AgentWorkspace() {
       setSession(current.activeSession);
     }
     if (current.uiAction) {
-      if (current.uiAction.type === "open_artifact") updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split");
+      if (current.uiAction.type === "open_artifact") {
+        setRequestedArtifact({ id: current.uiAction.artifactId });
+        updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split");
+      }
       else if (current.uiAction.type === "open_resume_upload") setUploadFocusSignal((value) => value + 1);
       else if (current.uiAction.type === "request_resume_import_consent") setPendingResumeImportAttachmentId(current.uiAction.attachmentId);
       else { floatingActionOwner.current = current.activeSession?.id; setFloatingAction(current.uiAction); }
@@ -805,7 +812,8 @@ export function AgentWorkspace() {
   function dispatchArtifactAction(action: AgentArtifactAction) {
     return host.runUserEvent({ type: "artifact_action", action }, { session, pageContext: pageContext() }).then((result) => {
       if (!result) return;
-      setSession(result);
+      const live = host.state.getSnapshot().activeSession;
+      setSession(live?.id === result.id ? live : result);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
       return result;
@@ -1450,6 +1458,11 @@ export function AgentWorkspace() {
                 activitySession={session}
                  onArtifactAction={dispatchArtifactAction}
                  onOpenArtifacts={() => updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split")}
+                 onOpenJobFit={() => {
+                   const fit = artifacts.findLast(artifact => artifact.kind === "job_fit_overview");
+                   if (fit) setRequestedArtifact({ id: fit.id });
+                   updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split");
+                 }}
                  hasJobFitArtifact={artifacts.some(artifact => artifact.kind === "job_fit_overview")}
                  onConfirmation={(confirmed) => void (async () => {
                    const next = await host.runUserEvent(
@@ -1461,7 +1474,8 @@ export function AgentWorkspace() {
               />
             </>
           )}
-          <span hidden data-testid="agent-recovery-state" data-state={recoveryState} data-session-id={recoveryReady ? session.id : undefined} />
+          <span hidden data-testid="agent-recovery-state" data-state={recoveryState} data-session-id={recoveryReady ? session.id : undefined}
+            data-turn-status={snapshot.turnStatus} data-lifecycle={lifecycle} data-run-status={session.hermesRun?.status} />
           {!recoveryReady && <p role="status">{recoveryState === "failed" ? "当前任务恢复失败，请重新打开原任务或刷新重试。" : "正在恢复当前任务…"}</p>}
           {recoveryReady && <ProfileIntakeRecoveryControl outcome={session.taskState?.knownSlots.profileIntakeCommitOutcome
             ?? (session.taskState?.knownSlots.profileIntakeReviewStale === true
@@ -1508,6 +1522,7 @@ export function AgentWorkspace() {
         <AgentArtifactDrawer
           artifacts={artifacts}
           state={drawerState}
+          requestedArtifact={requestedArtifact}
           workflowState={workflowView}
           taskState={session.taskState}
           onImportAction={(message) => void dispatchMessage(message)}

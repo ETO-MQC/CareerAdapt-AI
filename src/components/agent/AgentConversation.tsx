@@ -48,6 +48,7 @@ export function AgentConversation({
   profileIntakeProjection,
   onArtifactAction,
   onOpenArtifacts,
+  onOpenJobFit,
   hasJobFitArtifact,
   tailoringTaskState,
   businessProgress,
@@ -69,6 +70,7 @@ export function AgentConversation({
   profileIntakeProjection?: ProfileIntakeReviewProjection;
   onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
   onOpenArtifacts?(): void;
+  onOpenJobFit?(): void;
   hasJobFitArtifact?: boolean;
   tailoringTaskState?: AgentTaskState;
   businessProgress?: BusinessWorkflowProgress;
@@ -232,7 +234,7 @@ export function AgentConversation({
           );
         })}
         <AgentJobTarget task={tailoringTaskState} compact onOpen={onOpenArtifacts} />
-        {hasJobFitArtifact ? <div className="profile-intake-inline-review"><strong>岗位匹配分析已完成</strong><button type="button" onClick={onOpenArtifacts}>查看匹配分析</button></div> : null}
+        {hasJobFitArtifact ? <div className="profile-intake-inline-review"><strong>岗位匹配分析已完成</strong><button type="button" onClick={onOpenJobFit ?? onOpenArtifacts}>查看匹配分析</button></div> : null}
         {showProfileIntakeCards ? (
           <ProfileIntakeCandidateCards
             key={profileIntakeProjection?.importId}

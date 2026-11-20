@@ -128,6 +128,8 @@ export async function POST(request: NextRequest) {
           maxOutputChars: taskDefinition.maxOutputChars,
           stream: taskDefinition.task === "resume-document-mapper",
           ...(taskDefinition.task === "resume-document-mapper" ? { reasoningEffort: "low" as const } : {}),
+          ...(["profile-intake-semantic", "profile-intake-follow-up-patch", "jd-analyzer", "resume-document-mapper"].includes(taskDefinition.task)
+            ? { thinkingMode: "disabled" as const } : {}),
           signal: AbortSignal.any([request.signal, AbortSignal.timeout(remainingMs)])
         });
       } catch (error) {
