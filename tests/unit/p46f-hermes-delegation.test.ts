@@ -197,21 +197,23 @@ describe("P4.6f Hermes delegation architecture", () => {
   });
 
   it("maps official Hermes failure events into the bounded category vocabulary", () => {
-    const categories: Array<[string, number | undefined, HermesSafeErrorCategory]> = [
-      ["HTTP 401: Missing Authentication header", 401, "provider_auth"],
-      ["invalid request parameter", 400, "provider_request_invalid"],
-      ["model not found", 404, "model_not_found"],
-      ["tool schema invalid", 422, "tool_schema_invalid"],
-      ["maximum context length exceeded", 400, "context_overflow"],
-      ["provider timed out", 504, "provider_timeout"],
-      ["MCP tool execution failed", 500, "mcp_tool_failure"],
-      ["Hermes internal server error", 500, "hermes_internal_failure"],
-      ["bridge network disconnected", undefined, "transport_failure"]
+    const categories: Array<[string, string, number | undefined, HermesSafeErrorCategory]> = [
+      ["HTTP 401: Missing Authentication header", "provider_auth_failed", 401, "provider_auth"],
+      ["invalid request parameter", "invalid_request", 400, "provider_request_invalid"],
+      ["model not found", "hermes_model_not_found", 404, "model_not_found"],
+      ["tool schema invalid", "tool_schema_invalid", 422, "tool_schema_invalid"],
+      ["maximum context length exceeded", "context_overflow", 400, "context_overflow"],
+      ["provider timed out", "provider_timeout", 504, "provider_timeout"],
+      ["MCP tool execution failed", "mcp_tool_failure", 500, "mcp_tool_failure"],
+      ["Hermes internal server error", "hermes_internal_failure", 500, "hermes_internal_failure"],
+      ["bridge network disconnected", "bridge_unavailable", undefined, "transport_failure"]
     ];
 
-    for (const [message, httpStatus, category] of categories) {
-      expect(classifyHermesRunFailure({ message, httpStatus, code: "hermes_run_failed" }).safeErrorCategory).toBe(category);
+    for (const [message, code, httpStatus, category] of categories) {
+      expect(classifyHermesRunFailure({ message, httpStatus, code }).safeErrorCategory).toBe(category);
     }
+    expect(classifyHermesRunFailure({ message: "HTTP 401: Missing Authentication header", httpStatus: 401,
+      code: "hermes_run_failed" }).safeErrorCategory).toBe("unknown");
 
     expect(classifyHermesRunFailure({
       code: "gateway_auth_failed",

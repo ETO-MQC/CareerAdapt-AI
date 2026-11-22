@@ -1872,7 +1872,7 @@ function AgentFloatingAction(props: {
   );
 }
 
-function taskToWorkflowView(session: AgentSession): TailorWorkflowViewState {
+export function taskToWorkflowView(session: AgentSession): TailorWorkflowViewState {
   const task = session.taskState;
   const slots = task?.knownSlots ?? {};
   const tailoringPlan = readRecord(readRecord(slots.tailoringSession).plan);
@@ -1901,7 +1901,7 @@ function taskToWorkflowView(session: AgentSession): TailorWorkflowViewState {
       ? slots.confirmedRequirementIds.filter((id): id is string => typeof id === "string")
       : [],
     pendingConfirmation: session.pendingToolCall?.toolName as TailorWorkflowViewState["pendingConfirmation"],
-    appliedRevisionId: task?.selectedEntities.revisionId
+    appliedRevisionId: task?.selectedEntities.resultResumeRevisionId
   };
 }
 

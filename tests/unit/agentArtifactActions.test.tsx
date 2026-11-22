@@ -1,11 +1,23 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AgentArtifactContent } from "@/components/agent/artifacts/AgentArtifactContent";
+import { AgentArtifactContent, TailoringDiffRecord } from "@/components/agent/artifacts/AgentArtifactContent";
 import { AgentTailoringInlineDiffs } from "@/components/agent/AgentTailoringInlineDiffs";
+import { AgentArtifactDrawer } from "@/components/agent/artifacts/AgentArtifactDrawer";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 
 describe("Agent artifact decisions", () => {
+  it("edits list entries on separate lines without splitting punctuation inside an entry", async () => {
+    const onDecision = vi.fn();
+    render(<TailoringDiffRecord diff={{ target: { sectionId: "project", fieldPath: "highlights" }, original: ["原文一", "原文二"],
+      value: ["第一项；保留分号", "第二项"], evidenceRefs: [] }} review={{}} diffId="diff-list" onDecision={onDecision} />);
+    fireEvent.click(screen.getByRole("button", { name: "编辑后采用" }));
+    const editor = screen.getByLabelText("编辑建议内容");
+    expect(editor).toHaveValue("第一项；保留分号\n第二项");
+    fireEvent.change(editor, { target: { value: "第一项；保留分号\n第二项已修改" } });
+    fireEvent.click(screen.getByRole("button", { name: "采用编辑" }));
+    await waitFor(() => expect(onDecision).toHaveBeenCalledWith("edit", "第一项；保留分号\n第二项已修改"));
+  });
   it("dispatches profile candidate rejection as a typed action", () => {
     const onArtifactAction = vi.fn();
     const onImportAction = vi.fn();
@@ -343,6 +355,35 @@ describe("Agent artifact decisions", () => {
       type: "tailoring_diff_submit",
       reviews: [{ diffId, decision: "accept", generatedDiffRevision: 1 }]
     });
+  });
+
+  it("does not retain a local choice when the current proposal was rejected as stale", async () => {
+    const diff = makeTailoringDiff("inline-stale");
+    const diffId = tailoringDiffId(diff);
+    const onArtifactAction = vi.fn(async () => ({ taskState: { knownSlots: { artifactActionFeedback: {
+      entityId: diffId, result: "invalid_target", message: "修改建议已经更新，请重新选择后重试。"
+    } } } }));
+    render(<AgentTailoringInlineDiffs taskState={{ rootGoal: "create_tailored_resume", workflowId: "tailor_resume",
+      stage: "preview_changes", knownSlots: { tailoringSession: { generatedDiffRevision: 1,
+        plan: { diffs: [diff], diffReviews: [] } } } } as unknown as AgentTaskState} onArtifactAction={onArtifactAction} />);
+    fireEvent.click(screen.getByRole("button", { name: /^采用$/u }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("修改建议已经更新");
+    expect(screen.getByText("0/1 项已暂存")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "提交本次选择" })).toBeDisabled();
+  });
+
+  it("does not treat a failed drawer save as a durable staged choice", async () => {
+    const diff = makeTailoringDiff("inline-save-failed");
+    const onArtifactAction = vi.fn(async () => undefined);
+    render(<AgentArtifactDrawer artifacts={[]} state="split" onStateChange={vi.fn()} onArtifactAction={onArtifactAction}
+      workflowState={{ step: "preview_changes", busy: false, diffs: [], confirmedRequirementIds: [] }}
+      taskState={{ rootGoal: "create_tailored_resume", workflowId: "tailor_resume", stage: "preview_changes",
+        knownSlots: { tailoringSession: { generatedDiffRevision: 1, plan: { diffs: [diff], diffReviews: [] } } }
+      } as unknown as AgentTaskState} />);
+    fireEvent.click(screen.getByRole("button", { name: /^采用$/u }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("这项选择未确认保存");
+    expect(screen.getByText("0/1 项已暂存")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "提交本次选择" })).toBeDisabled();
   });
 
   it("shows one inline diff at a time, navigates all generated diffs, and advances after a decision", async () => {

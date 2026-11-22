@@ -269,6 +269,9 @@ import {
   assertTailoringStructuralPreservation
 } from "@/domain/resumeIntegrity";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
+import { assertTailoringDiffFacts } from "@/domain/jobOptimization/tailoringFactGuard";
+import { mayUseTailoringTaskEvidence, resolveTailoringTaskEvidence, type TailoringTaskEvidence } from "@/domain/jobOptimization/tailoringTaskEvidence";
+import type { CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
 import {
   AdaptationDraftError,
   assertC2MatchesUsable,
@@ -3579,6 +3582,92 @@ export class WorkspaceRepository {
     return { operationId: p.operationId, proposalHash: p.proposalHash, branchId: revision.branchId, revisionId: revision.id };
   }
 
+  async resolveTailoringTaskEvidence(input: {
+    binding?: CareerSessionBinding;
+    taskId: string;
+    jobId: string;
+    branchId: string;
+    baseRevisionId: string;
+    diffs: ResumeTailoringDiff[];
+  }): Promise<TailoringTaskEvidence[]> {
+    if (!input.binding) return [];
+    // Evidence resolution must be read-only: getAgentSession may persist a
+    // migration and advance the revision while an Artifact action is running.
+    const rawSession = await this.db.agentSessions.get(input.binding.agentSessionId);
+    const session = rawSession ? migrateAgentSessionToCurrentSchema(rawSession as unknown as Record<string, unknown>) : undefined;
+    if (!session || session.archived || session.personId !== input.binding.personId
+      || session.activeProfileId !== input.binding.profileId
+      || session.profileVersionNumber !== input.binding.profileVersionNumber
+      || session.profileRevision !== input.binding.profileRevision) return [];
+    const messages = (await this.db.agentMessages.where("sessionId").equals(session.id).toArray())
+      .map((message) => AgentMessageRecordSchema.parse(message));
+    return resolveTailoringTaskEvidence({ ...input, session, messages });
+  }
+
+  async getTailoringRevisionProvenance(revisionId: string) {
+    const value = (await this.db.appMeta.get(`tailoring-provenance:${revisionId}`))?.value;
+    if (!value) return undefined;
+    if (typeof value !== "object" || Array.isArray(value)) throw new Error("tailoring_provenance_invalid");
+    const { integrityHash, ...record } = value as Record<string, unknown>;
+    if (record.auditId !== `tailoring-provenance:${revisionId}` || record.resultRevisionId !== revisionId
+      || integrityHash !== sha256Utf8(JSON.stringify(record))) throw new Error("tailoring_provenance_invalid");
+    return value;
+  }
+
+  async getTailoringOperationResult(operationId: string) {
+    const operation = await this.db.resumeBranchOperations.where("operationId").equals(operationId).first();
+    if (!operation?.branchId || !operation.revisionId) return undefined;
+    if (operation.type !== "suggestion_accept") throw new Error("tailoring_operation_target_conflict");
+    const revision = await this.db.resumeRevisions.get(operation.revisionId);
+    if (!revision || revision.branchId !== operation.branchId || revision.operationId !== operationId) {
+      throw new Error("tailoring_operation_receipt_invalid");
+    }
+    return { branchId: operation.branchId, revisionId: revision.id };
+  }
+
+  private async saveTailoringRevisionProvenance(input: {
+    evidence: TailoringTaskEvidence[];
+    jobId: string;
+    sourceBranchId: string;
+    baseRevisionId: string;
+    resultBranchId: string;
+    resultRevisionId: string;
+    operationId: string;
+    diffs: ResumeTailoringDiff[];
+    now: string;
+  }) {
+    if (!input.evidence.length) return;
+    const auditId = `tailoring-provenance:${input.resultRevisionId}`;
+    const record = { auditId, recordVersion: 1, operationId: input.operationId, jobId: input.jobId,
+      resumeBranchId: input.sourceBranchId, baseRevisionId: input.baseRevisionId,
+      resultBranchId: input.resultBranchId, resultRevisionId: input.resultRevisionId,
+      diffIds: input.diffs.map(tailoringDiffId),
+      diffDigest: sha256Utf8(JSON.stringify(input.diffs)),
+      sources: input.evidence.map((item) => ({ ...item, sourceRole: "user" as const,
+        confirmationReceiptId: `${item.questionPlanId}:${item.questionId}:${item.answerRevision}`,
+        contentHash: sha256Utf8(item.factText) })) };
+    await this.db.appMeta.add({ key: auditId, value: { ...record, integrityHash: sha256Utf8(JSON.stringify(record)) }, updatedAt: input.now });
+  }
+
+  private async assertTailoringProvenanceReplay(input: {
+    revisionId: string; operationId: string; sourceBranchId: string; baseRevisionId: string; jobId: string;
+    taskEvidenceContext?: { binding: CareerSessionBinding; taskId: string }; diffs: ResumeTailoringDiff[];
+  }) {
+    const audit = await this.getTailoringRevisionProvenance(input.revisionId) as {
+      operationId: string; resumeBranchId: string; baseRevisionId: string; jobId: string; diffIds: string[]; diffDigest: string;
+      sources: Array<{ sessionId: string; taskId: string }>;
+    } | undefined;
+    if (!audit) return;
+    if (audit.operationId !== input.operationId || audit.resumeBranchId !== input.sourceBranchId
+      || audit.baseRevisionId !== input.baseRevisionId || audit.jobId !== input.jobId
+      || JSON.stringify(audit.diffIds) !== JSON.stringify(input.diffs.map(tailoringDiffId))
+      || audit.diffDigest !== sha256Utf8(JSON.stringify(input.diffs))
+      || !input.taskEvidenceContext || audit.sources.some((source) =>
+        source.sessionId !== input.taskEvidenceContext!.binding.agentSessionId || source.taskId !== input.taskEvidenceContext!.taskId)) {
+      throw new Error("tailoring_provenance_replay_conflict");
+    }
+  }
+
   async applyTailoringDiffs(input: {
     branchId: string;
     jobId: string;
@@ -3589,13 +3678,19 @@ export class WorkspaceRepository {
     expectedRevisionId: string;
     expectedProfileRevision?: number;
     expectedJobRevision?: string;
+    taskEvidenceContext?: { binding: CareerSessionBinding; taskId: string };
   }) {
-    const result = await this.db.transaction("rw", [this.db.profiles, this.db.jobDescriptions, this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.appMeta], async () => {
+    const result = await this.db.transaction("rw", [this.db.profiles, this.db.jobDescriptions, this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.appMeta, this.db.agentSessions, this.db.agentMessages], async () => {
       const existing = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
       if (existing?.revisionId) {
+        if (existing.type !== "suggestion_accept" || existing.branchId !== input.branchId) throw new Error("tailoring_operation_target_conflict");
+        await this.assertTailoringProvenanceReplay({ revisionId: existing.revisionId, operationId: input.operationId,
+          sourceBranchId: input.branchId, baseRevisionId: input.expectedRevisionId, jobId: input.jobId,
+          taskEvidenceContext: input.taskEvidenceContext, diffs: input.diffs });
         const branch = await this.db.resumeBranches.get(input.branchId);
         if (!branch) throw new Error("tailoring_branch_missing");
         const parsedBranch = ResumeBranchSchema.parse(branch);
+        if (parsedBranch.jobId !== input.jobId) throw new Error("tailoring_operation_target_conflict");
         const presentationBefore = presentationSnapshotFromConfig(await this.getResumePresentationConfig(parsedBranch.id));
         const presentationAfter = presentationSnapshotFromConfig(await this.getResumePresentationConfig(parsedBranch.id));
         const presentationInvariant = assertTailoringPresentationInvariant(presentationBefore, presentationAfter);
@@ -3661,6 +3756,13 @@ export class WorkspaceRepository {
       }
 
       const now = new Date().toISOString();
+      const profileRecord = await this.db.profiles.get(branch.profileId);
+      if (!profileRecord) throw new Error("tailoring_profile_missing");
+      const taskEvidence = input.taskEvidenceContext && mayUseTailoringTaskEvidence(validation.appliedDiffs) ? await this.resolveTailoringTaskEvidence({
+        ...input.taskEvidenceContext, branchId: branch.id, jobId: input.jobId,
+        baseRevisionId: input.expectedRevisionId, diffs: validation.appliedDiffs
+      }) : [];
+      assertTailoringDiffFacts(CareerProfileSchema.parse(profileRecord), validation.appliedDiffs, taskEvidence);
       const claims = validation.appliedDiffs.map((diff, index): TailoringClaim => ({
         id: `tailoring-diff-${input.operationId}-${index}`,
         section: diff.target.sectionId as TailoringClaim["section"],
@@ -3717,6 +3819,9 @@ export class WorkspaceRepository {
       await this.db.resumeBranches.put(nextBranch);
       await this.db.resumeRevisions.put(revision);
       await this.db.resumeBranchOperations.put(operation);
+      await this.saveTailoringRevisionProvenance({ evidence: taskEvidence, jobId: input.jobId, sourceBranchId: branch.id,
+        baseRevisionId: input.expectedRevisionId, resultBranchId: nextBranch.id, resultRevisionId: revision.id,
+        operationId: input.operationId, diffs: validation.appliedDiffs, now });
       const presentationAfter = presentationSnapshotFromConfig(await this.getResumePresentationConfig(nextBranch.id));
       const presentationInvariant = assertTailoringPresentationInvariant(presentationBefore, presentationAfter);
       assertTailoringSourceBranchUnchanged(sourceBranchBefore, branch.sourceBranchId ? await this.db.resumeBranches.get(branch.sourceBranchId) : undefined);
@@ -3764,6 +3869,7 @@ export class WorkspaceRepository {
     confirmedRequirementIds?: string[];
     operationId: string;
     name: string;
+    taskEvidenceContext?: { binding: CareerSessionBinding; taskId: string };
   }) {
     const source = await this.getResumeBranch(input.sourceBranchId);
     if (source && source.branchPurpose === "job_specific") {
@@ -3777,7 +3883,8 @@ export class WorkspaceRepository {
         expectedBranchRevision: input.expectedSourceRevision,
         expectedRevisionId: input.expectedSourceRevisionId,
         expectedProfileRevision: input.expectedProfileRevision,
-        expectedJobRevision: input.targetSnapshot ? undefined : input.expectedJobRevision
+        expectedJobRevision: input.targetSnapshot ? undefined : input.expectedJobRevision,
+        taskEvidenceContext: input.taskEvidenceContext
       });
     }
     const result = await this.db.transaction(
@@ -3789,14 +3896,24 @@ export class WorkspaceRepository {
         this.db.resumeBranches,
         this.db.resumeRevisions,
         this.db.resumeBranchOperations,
-        this.db.appMeta
+        this.db.appMeta,
+        this.db.agentSessions,
+        this.db.agentMessages
       ],
       async () => {
         const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
         if (existingOperation?.branchId && existingOperation.revisionId) {
+          if (existingOperation.type !== "suggestion_accept") throw new Error("tailoring_operation_target_conflict");
+          await this.assertTailoringProvenanceReplay({ revisionId: existingOperation.revisionId, operationId: input.operationId,
+            sourceBranchId: input.sourceBranchId, baseRevisionId: input.expectedSourceRevisionId, jobId: input.jobId,
+            taskEvidenceContext: input.taskEvidenceContext, diffs: input.diffs });
           const existingBranch = await this.db.resumeBranches.get(existingOperation.branchId);
           if (!existingBranch) throw new Error("resume_branch_missing_for_operation");
           const branch = ResumeBranchSchema.parse(existingBranch);
+          if (branch.sourceBranchId !== input.sourceBranchId || (input.targetSnapshot
+            ? branch.targetSnapshotId !== input.targetSnapshot.id || branch.targetSnapshotVersion !== input.targetSnapshot.version
+              || branch.targetSnapshotHash !== jobTargetSnapshotHash(input.targetSnapshot)
+            : branch.jobId !== input.jobId)) throw new Error("tailoring_operation_target_conflict");
           const revision = await this.getResumeRevisionInTransaction(existingOperation.revisionId);
           if (!revision) throw new Error("tailoring_revision_missing_for_operation");
           const sourceBranch = branch.sourceBranchId
@@ -3946,6 +4063,11 @@ export class WorkspaceRepository {
         if (validation.rejectedDiffs.length || validation.appliedDiffs.length !== input.diffs.length || validation.patches.length !== input.diffs.length) {
           throw new Error("tailoring_apply_verification_failed");
         }
+        const taskEvidence = input.taskEvidenceContext && mayUseTailoringTaskEvidence(validation.appliedDiffs) ? await this.resolveTailoringTaskEvidence({
+          ...input.taskEvidenceContext, branchId: sourceBranch.id, jobId: input.jobId,
+          baseRevisionId: input.expectedSourceRevisionId, diffs: validation.appliedDiffs
+        }) : [];
+        assertTailoringDiffFacts(profile, validation.appliedDiffs, taskEvidence);
 
         const claims = validation.appliedDiffs.map((diff, index): TailoringClaim => ({
           id: `tailoring-diff-${input.operationId}-${index}`,
@@ -4033,6 +4155,9 @@ export class WorkspaceRepository {
         await this.db.resumeRevisions.put(revision);
         await this.db.resumeBranchOperations.put(operation);
         await this.db.appMeta.put({ key: resumePresentationConfigKey(nextBranch.id), value: targetPresentation, updatedAt: now });
+        await this.saveTailoringRevisionProvenance({ evidence: taskEvidence, jobId: input.jobId, sourceBranchId: sourceBranch.id,
+          baseRevisionId: input.expectedSourceRevisionId, resultBranchId: nextBranch.id, resultRevisionId: revision.id,
+          operationId: input.operationId, diffs: validation.appliedDiffs, now });
         assertTailoringSourceBranchUnchanged(sourceBranch, await this.db.resumeBranches.get(sourceBranch.id));
         return {
           branch: nextBranch,
@@ -7153,6 +7278,8 @@ export class WorkspaceRepository {
       this.db.exportRecords,
       this.db.appMeta,
       async () => {
+        const revisions = await this.db.resumeRevisions.where("branchId").equals(parsed.id).toArray();
+        await this.db.appMeta.bulkDelete(revisions.map((revision) => `tailoring-provenance:${revision.id}`));
         await this.db.resumeRevisions.where("branchId").equals(parsed.id).delete();
         await this.db.resumeBranchOperations.where("branchId").equals(parsed.id).delete();
         await this.db.exportRecords.where("branchId").equals(parsed.id).delete();
@@ -8049,6 +8176,7 @@ export class WorkspaceRepository {
   }
 
   async setMeta(key: string, value: unknown) {
+    if (key.startsWith("tailoring-provenance:")) throw new Error("tailoring_provenance_immutable");
     const meta = {
       key,
       value,

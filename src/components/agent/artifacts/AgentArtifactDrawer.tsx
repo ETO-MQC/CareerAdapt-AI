@@ -190,7 +190,15 @@ export function AgentArtifactDrawer({
         </div>
         <div className="agent-artifact-drawer-body">
           <AgentJobTarget task={taskState} />
-          {taskState ? <AgentTailoringInlineDiffs taskState={taskState} onArtifactAction={onArtifactAction} /> : null}
+          {taskState ? <AgentTailoringInlineDiffs taskState={taskState} onArtifactAction={onArtifactAction
+            ? async (action) => {
+                const result = await onArtifactAction(action);
+                if (action.type === "tailoring_diff_stage_decision" && !result) {
+                  throw new Error("这项选择未确认保存，请刷新后重试。");
+                }
+                return result;
+              }
+            : undefined} /> : null}
           <AgentArtifactContent artifact={selectedArtifact} state={workflowState} taskState={taskState} onImportAction={onImportAction} onArtifactAction={onArtifactAction} onUiAction={onUiAction} />
           {hasTarget || workflowState.jobGraph || workflowState.fitAnalysis || workflowState.tailoringSession || workflowState.appliedRevisionId || taskState?.knownSlots.importArtifact || taskState?.knownSlots.intakeArtifact ? null : (
             <div className="agent-artifact-partial">

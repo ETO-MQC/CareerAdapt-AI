@@ -26,6 +26,7 @@ export function AgentTailoringInlineDiffs({
     index: 0
   });
   const [submitting, setSubmitting] = useState(false);
+  const [stageError, setStageError] = useState("");
   const [localDraftState, setLocalDraftState] = useState<{
     revision: unknown;
     reviews: TailoringDraftReview[];
@@ -158,6 +159,7 @@ export function AgentTailoringInlineDiffs({
               feedback={feedback.entityId === diffId ? feedback : undefined}
               onDecision={async (decision, editedValue) => {
                 if (!diffId || !onArtifactAction) return;
+                setStageError("");
                 setLocalDraftState((current) => {
                   const existing = String(current.revision) === String(generatedDiffRevision) ? current.reviews : [];
                   return {
@@ -173,13 +175,25 @@ export function AgentTailoringInlineDiffs({
                     ]
                   };
                 });
-                await onArtifactAction({
-                  type: "tailoring_diff_stage_decision",
-                  diffId,
-                  decision,
-                  editedValue,
-                  ...(typeof generatedDiffRevision === "number" ? { generatedDiffRevision } : {})
-                });
+                try {
+                  const result = await onArtifactAction({
+                    type: "tailoring_diff_stage_decision",
+                    diffId,
+                    decision,
+                    editedValue,
+                    ...(typeof generatedDiffRevision === "number" ? { generatedDiffRevision } : {})
+                  });
+                  const feedback = asRecord(asRecord(asRecord(result).taskState).knownSlots).artifactActionFeedback;
+                  const actionFeedback = asRecord(feedback);
+                  if (actionFeedback.entityId === diffId && actionFeedback.result !== "handled") {
+                    throw new Error(typeof actionFeedback.message === "string" ? actionFeedback.message : "这项选择未保存，请重试。");
+                  }
+                } catch (error) {
+                  setLocalDraftState((current) => ({ ...current,
+                    reviews: current.reviews.filter((review) => review.diffId !== diffId) }));
+                  setStageError(error instanceof Error ? error.message : "这项选择未保存，请重试。");
+                  return;
+                }
                 stageNextDiff();
               }}
             />
@@ -202,6 +216,7 @@ export function AgentTailoringInlineDiffs({
           {submitting ? "提交中…" : "提交本次选择"}
         </button>
       </footer>
+      {stageError ? <span className="agent-diff-feedback" role="alert">{stageError}</span> : null}
       {feedback.entityId === "submit" && typeof feedback.message === "string" ? (
         <span className="agent-diff-feedback" role="status">{feedback.message}</span>
       ) : null}

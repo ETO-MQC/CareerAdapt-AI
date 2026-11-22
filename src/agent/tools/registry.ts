@@ -76,8 +76,8 @@ export type AgentToolServices = {
   answerTailoringQuestion(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   generateTailoringChanges?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   reviewTailoringDiff?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
-  previewTailoringChanges(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
-  applyTailoringChanges(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
+  previewTailoringChanges(input: unknown, operationId: string, signal?: AbortSignal, context?: AgentToolExecutionContext): Promise<unknown>;
+  applyTailoringChanges(input: unknown, operationId: string, signal?: AbortSignal, context?: AgentToolExecutionContext): Promise<unknown>;
   archiveResume?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   restoreResume?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   exportResume(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
@@ -401,8 +401,8 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("answer_tailoring_question", "记录用户对当前改写澄清问题的回答；只修改当前定制会话。", "user_declared", false, true, true, TailoringQuestionInputSchema, "tailoring", "tailoring_session"), (input, operationId, signal) => services.answerTailoringQuestion(input, operationId, signal)),
     define(services, meta("generate_tailoring_changes", "汇总已冻结的岗位上下文与全部回答，一次生成最终修改建议。", "read", false, true, true, GenerateTailoringChangesInputSchema, "tailoring", "career_assets", true), (input, operationId, signal) => services.generateTailoringChanges ? services.generateTailoringChanges(input, operationId, signal) : unavailableTool("generate_tailoring_changes")),
     define(services, meta("review_tailoring_diff", "记录一项定制修改的采用、编辑或忽略决定。", "user_declared", false, true, true, ReviewTailoringDiffInputSchema, "tailoring", "tailoring_session"), (input, operationId, signal) => services.reviewTailoringDiff ? services.reviewTailoringDiff(input, operationId, signal) : unavailableTool("review_tailoring_diff")),
-    define(services, meta("preview_tailoring_changes", "校验并预览将要应用的改写差异。", "read", false, true, true, TailoringChangesInputSchema, "tailoring", "resume_preview", true), (input, operationId, signal) => services.previewTailoringChanges(input, operationId, signal)),
-    define(services, meta("apply_tailoring_changes", "应用已确认的改写并创建新版本。", "write", true, true, true, TailoringChangesInputSchema, "tailoring", "resume_revision", true), (input, operationId, signal) => services.applyTailoringChanges(input, operationId, signal)),
+    define(services, meta("preview_tailoring_changes", "校验并预览将要应用的改写差异。", "read", false, true, true, TailoringChangesInputSchema, "tailoring", "resume_preview", true), (input, operationId, signal, context) => services.previewTailoringChanges(input, operationId, signal, context)),
+    define(services, meta("apply_tailoring_changes", "应用已确认的改写并创建新版本。", "write", true, true, true, TailoringChangesInputSchema, "tailoring", "resume_revision", true), (input, operationId, signal, context) => services.applyTailoringChanges(input, operationId, signal, context)),
     define(services, meta("archive_resume", "归档一份当前处于 active 状态的精确简历；不会删除内容。", "write", true, true, true, ResumeLifecycleInputSchema, "resume", "resume_lifecycle"), (input, operationId, signal) => services.archiveResume ? services.archiveResume(input, operationId, signal) : unavailableTool("archive_resume")),
     define(services, meta("restore_resume", "将一份已归档简历恢复为 active 状态。", "write", true, true, true, ResumeLifecycleInputSchema, "resume", "resume_lifecycle"), (input, operationId, signal) => services.restoreResume ? services.restoreResume(input, operationId, signal) : unavailableTool("restore_resume")),
     define(services, meta("export_resume", "为指定简历创建 PDF 导出入口。", "write", false, true, true, ExportInputSchema, "export", "resume_export", true), (input, operationId, signal) => services.exportResume(input, operationId, signal))
@@ -537,6 +537,7 @@ function safeToolErrorCode(error: unknown) {
 
 function safeToolErrorMessage(code: string) {
   if (code === "tool_execution_failed") return "工具执行没有完成。";
+  if (code === "tailoring_fact_guard_rejected") return "修改包含缺少已确认依据的事实，请核对或编辑后再提交；本次没有写入简历。";
   if (isProviderTransportFailureCode(code)) return `${safeTransportMessage(code)}本次没有写入简历，当前生成计划已保留。`;
   return `工具执行未完成（${code}）。`;
 }

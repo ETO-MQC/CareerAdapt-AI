@@ -1314,7 +1314,7 @@ async function clearAiCredentialFromSettings() {
                           className="secondary-button compact danger-text"
                           type="button"
                           onClick={() => {
-                            if (!window.confirm(`永久删除「${session.title}」？此操作不可撤销。`)) return;
+                            if (!window.confirm(`永久删除「${session.title}」？此操作不可撤销。与已创建正式简历版本关联的最小来源证明会继续保留。`)) return;
                             void sessionStoreRef.current.delete(session.id).then(() => {
                               setArchivedSessions((prev) => prev.filter((s) => s.id !== session.id));
                               notify({ type: "success", title: "已删除", message: `「${session.title}」已永久删除。` });

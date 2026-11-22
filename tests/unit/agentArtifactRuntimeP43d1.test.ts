@@ -517,7 +517,7 @@ describe("P4.3d.1 artifact action runtime", () => {
       target: { sectionId: "summary", itemId: summary.id, fieldPath: "text" as const },
       operation: "replace" as const,
       original: summary.data.text,
-      value: "基于已核验经历，突出与目标岗位相关的交付能力。",
+      value: "经济管理方向本科生，关注跨境业务流程、数据分析和AI应用。",
       reason: "突出岗位相关的已核验经历",
       requirementIds: [],
       targetKeywords: ["交付"],

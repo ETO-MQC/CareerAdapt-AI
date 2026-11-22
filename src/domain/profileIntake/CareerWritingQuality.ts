@@ -49,6 +49,12 @@ export function preservesOwnership(sourceText: string, generatedText: string) {
   return responsibilityClaims(generatedText).every((claim) => sources.some((source) => {
     if (source.other !== claim.other || source.level < claim.level) return false;
     if (source.level <= 2 && source.phrase !== claim.phrase && !(["参与", "参加"].includes(source.phrase) && ["参与", "参加"].includes(claim.phrase))) return false;
+    // A narrow syntactic inversion preserves the complete project and list of
+    // activities verbatim: “参与 X 项目的 A、B 和 C” -> “参与 A、B 和 C 等 X 项目工作”.
+    // No partial list, new action, or stronger ownership is authorized here.
+    const projectList = source.object.match(/^(.+项目)的(.+)$/u);
+    if (projectList && claim.object.replace(/\s+/gu, "")
+      === `${projectList[2]}等${projectList[1]}工作`.replace(/\s+/gu, "")) return true;
     if (/[及和、]/u.test(claim.object) && !source.object.includes(claim.object)) return false;
     if (!source.object || !claim.object) return source.phrase === claim.phrase;
     const tokens = claim.object.match(/[A-Za-z][A-Za-z0-9.+#-]*|[\u4e00-\u9fff]{2}/gu) ?? [];

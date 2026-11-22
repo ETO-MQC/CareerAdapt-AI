@@ -1,9 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { CareerProfileSchema, JobTargetSnapshotSchema } from "@/domain/schemas";
+import { CareerProfileSchema, JobTargetSnapshotSchema, ResumeTailoringDiffModelOutputSchema } from "@/domain/schemas";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { core02BehaviorCases } from "../agent-eval/core02-behavior-cases";
 import { core02Material } from "./support/core02Material";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { completeCoreResumeWorkflow, installCoreWritingProvider, prepareCoreSourceResume, readStore, verifyCoreResumePdf } from "./support/p51CoreWorkflow";
 
@@ -559,8 +561,24 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     }).toBe(source.profileId);
     const providerBefore = await readProviderEvidence(page);
     await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
-    await expect(page.locator(".agent-confirmation")).toBeVisible();
-    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    const confirmation = page.locator(".agent-confirmation");
+    await expect.poll(async () => {
+      if (await confirmation.isVisible()) return "awaiting_confirmation";
+      const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+      const session = (await readStore(page, "agentSessions")).find(row => row.id === id);
+      const task = session?.taskState as { knownSlots?: { facadeCheckpoint?: { businessStatus?: string; persistenceVerified?: boolean; jobId?: string } } } | undefined;
+      const checkpoint = task?.knownSlots?.facadeCheckpoint;
+      return checkpoint?.businessStatus === "committed" && checkpoint.persistenceVerified && checkpoint.jobId
+        && (await readStore(page, "jobDescriptions")).some(job => job.id === checkpoint.jobId) ? "verified_commit" : "pending";
+    }, { timeout: 90_000 }).not.toBe("pending");
+    if (await confirmation.isVisible()) {
+      await confirmation.getByRole("button", { name: "确认", exact: true }).click();
+    } else {
+      const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+      const messages = await readStore(page, "agentMessages");
+      expect(messages.some(message => message.sessionId === id && message.role === "user"
+        && message.content === "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。")).toBe(true);
+    }
     await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
     const jobsBefore = await readStore(page, "jobDescriptions");
     await send(page, "P51-C02-FIT 这个岗位适合我吗？");
@@ -613,6 +631,211 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     expect((await readStore(page, "resumeBranches")).find(branch => branch.id === target.id)).toEqual(target);
     await verifyCoreResumePdf(page, String(target.id));
     await testInfo.attach("jd03-confirmed-a4", { body: await page.screenshot(), contentType: "image/png" });
+  });
+
+  test("CASE L2 P522 mixed decisions — Hermes reviews three grounded changes and exports the resulting revision", async ({ page }, testInfo) => {
+    test.setTimeout(300_000);
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    const existing = new Set((await readStore(page, "resumeBranches")).map(branch => branch.id));
+    await prepareCoreSourceResume(page, true);
+    const source = (await readStore(page, "resumeBranches")).find(branch => !existing.has(branch.id) && branch.branchPurpose === "general")!;
+    expect(source).toBeTruthy();
+    const profilesBefore = await readStore(page, "profiles");
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
+    const saveConfirmation = page.locator(".agent-confirmation");
+    await expect.poll(async () => {
+      if (await saveConfirmation.isVisible()) return "confirmation";
+      const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+      const session = (await readStore(page, "agentSessions")).find(row => row.id === id);
+      const checkpoint = (session?.taskState as { knownSlots?: { facadeCheckpoint?: { businessStatus?: string; persistenceVerified?: boolean; jobId?: string } } } | undefined)?.knownSlots?.facadeCheckpoint;
+      return checkpoint?.businessStatus === "committed" && checkpoint.persistenceVerified && checkpoint.jobId
+        && (await readStore(page, "jobDescriptions")).some(job => job.id === checkpoint.jobId) ? "saved" : "pending";
+    }, { timeout: 90_000 }).not.toBe("pending");
+    if (await saveConfirmation.isVisible()) await saveConfirmation.getByRole("button", { name: "确认", exact: true }).click();
+    await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+    await send(page, "P51-C02-FIT 这个岗位适合我吗？");
+    await expectAssistant(page, "C02FITCOMPLETE");
+    await installCoreWritingProvider(page, true);
+    await send(page, "P51-C02-TAILOR 那按它帮我改简历，别改模板，只改内容。");
+    await expectTailoringReview(page, trace);
+    const inline = page.getByRole("group", { name: "岗位定制修改预览" });
+    const activeSessionId = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+    const session = (await readStore(page, "agentSessions")).find(row => row.id === activeSessionId)!;
+    const task = session.taskState as { knownSlots: { tailoringSession: { plan: { diffs: Array<{
+      target: { itemId: string; fieldPath: string }; original: unknown; value: unknown
+    }> } } } };
+    const diffs = task.knownSlots.tailoringSession.plan.diffs;
+    expect(diffs.length).toBeGreaterThanOrEqual(3);
+    const beforeRevisions = await readStore(page, "resumeRevisions");
+    await inline.getByRole("button", { name: "采用", exact: true }).click();
+    await expect(inline).toContainText(`修改意见 2 / ${diffs.length}`);
+    await inline.getByRole("button", { name: "编辑后采用", exact: true }).click();
+    const editor = inline.getByLabel("编辑建议内容");
+    const proposed = await editor.inputValue();
+    const edited = proposed.replace(/。$/u, "");
+    expect(edited).not.toBe(proposed);
+    await editor.fill(edited);
+    await inline.getByRole("button", { name: "采用编辑", exact: true }).click();
+    await expect(inline).toContainText(`修改意见 3 / ${diffs.length}`);
+    await expect(inline).toContainText(`2/${diffs.length} 项已暂存`);
+    await page.reload();
+    await page.getByRole("button", { name: "查看简历修改", exact: true }).click();
+    await expect(inline).toContainText(`2/${diffs.length} 项已暂存`);
+    await inline.getByRole("button", { name: "下一条修改意见" }).click();
+    await inline.getByRole("button", { name: "下一条修改意见" }).click();
+    await expect(inline).toContainText(`修改意见 3 / ${diffs.length}`);
+    for (let index = 2; index < diffs.length; index++) {
+      await inline.getByRole("button", { name: "忽略", exact: true }).click();
+      if (index + 1 < diffs.length) await expect(inline).toContainText(`修改意见 ${index + 2} / ${diffs.length}`);
+    }
+    expect(await readStore(page, "resumeRevisions")).toEqual(beforeRevisions);
+    await inline.getByRole("button", { name: "提交本次选择", exact: true }).click();
+    await expect(page.getByRole("region", { name: "应用这些简历修改？" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("region", { name: "应用这些简历修改？" })).toBeVisible();
+    await page.getByRole("button", { name: "生成岗位简历", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "resumeBranches")).some(branch => branch.sourceBranchId === source.id && branch.branchPurpose === "job_specific"), { timeout: 60_000 }).toBe(true);
+    const target = (await readStore(page, "resumeBranches")).find(branch => branch.sourceBranchId === source.id && branch.branchPurpose === "job_specific")!;
+    const revisions = await readStore(page, "resumeRevisions");
+    const revision = revisions.find(row => row.id === target.currentRevisionId)!;
+    expect(revision.previousRevisionId).toBe(source.currentRevisionId);
+    expect(await readStore(page, "profiles")).toEqual(profilesBefore);
+    expect((await readStore(page, "resumeBranches")).find(row => row.id === source.id)).toEqual(source);
+    const items = target.structuredContentItems as Array<{ id: string; data: Record<string, unknown> }>;
+    const field = (index: number) => items.find(item => item.id === diffs[index].target.itemId)?.data[diffs[index].target.fieldPath];
+    expect(field(0)).toEqual(diffs[0].value);
+    expect(field(1)).toEqual(Array.isArray(diffs[1].value) ? edited.split(/\r?\n/u) : edited);
+    expect(field(2)).toEqual(diffs[2].original);
+    await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    const pdf = await verifyCoreResumePdf(page, String(target.id), testInfo.outputPath("mixed-decisions.pdf"));
+    const normalizeText = (value: string) => value.replace(/\s+/gu, "");
+    const previewText = normalizeText(pdf.previewText);
+    const pdfText = normalizeText(pdf.text);
+    const orderedItems = [...items].sort((a, b) => Number(a.data.order ?? 0) - Number(b.data.order ?? 0));
+    const positions: number[] = [];
+    for (const item of orderedItems) {
+      for (const value of [item.data.title, item.data.role, item.data.description, ...(Array.isArray(item.data.highlights) ? item.data.highlights : [])]) {
+        if (typeof value !== "string" || !value.trim()) continue;
+        expect(previewText).toContain(normalizeText(value));
+        expect(pdfText).toContain(normalizeText(value));
+      }
+      const firstHighlight = Array.isArray(item.data.highlights) ? item.data.highlights[0] : undefined;
+      if (typeof firstHighlight === "string") positions.push(pdfText.indexOf(normalizeText(firstHighlight)));
+    }
+    expect(positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1]))).toBe(true);
+    const poppler = "E:/Pycharm/Lib/poppler/Library/bin";
+    const pdfinfo = existsSync(`${poppler}/pdfinfo.exe`) ? `${poppler}/pdfinfo.exe` : "pdfinfo";
+    const pdftotext = existsSync(`${poppler}/pdftotext.exe`) ? `${poppler}/pdftotext.exe` : "pdftotext";
+    const info = execFileSync(pdfinfo, [pdf.pdfPath], { encoding: "utf8" });
+    const pageCount = Number(info.match(/^Pages:\s+(\d+)/mu)?.[1]);
+    expect(pageCount).toBe(await page.getByTestId("resume-a4-page").count());
+    const boxes = execFileSync(pdftotext, ["-bbox", pdf.pdfPath, "-"], { encoding: "utf8" });
+    const pages = [...boxes.matchAll(/<page\s+width="([\d.]+)"\s+height="([\d.]+)"[^>]*>([\s\S]*?)<\/page>/gu)];
+    expect(pages).toHaveLength(pageCount);
+    for (const [, width, height, body] of pages) {
+      const words = [...body.matchAll(/<word\s+xMin="([\d.]+)"\s+yMin="([\d.]+)"\s+xMax="([\d.]+)"\s+yMax="([\d.]+)"/gu)];
+      expect(words.length).toBeGreaterThan(0);
+      for (const [, xMin, yMin, xMax, yMax] of words) {
+        expect(Number(xMin)).toBeGreaterThanOrEqual(0);
+        expect(Number(yMin)).toBeGreaterThanOrEqual(0);
+        expect(Number(xMax)).toBeLessThanOrEqual(Number(width));
+        expect(Number(yMax)).toBeLessThanOrEqual(Number(height));
+      }
+    }
+    await page.reload();
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    expect((await readStore(page, "resumeBranches")).find(branch => branch.id === target.id)?.currentRevisionId).toBe(revision.id);
+    await page.goto("/ai-workspace");
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"))).toBe(activeSessionId);
+    await page.getByRole("button", { name: /^产物/u }).click();
+    const drawer = page.getByRole("complementary", { name: "任务产物" });
+    await expect(drawer.getByRole("link", { name: "打开编辑器", exact: true })).toHaveAttribute("href", `/resume?branchId=${encodeURIComponent(String(target.id))}`);
+    await startFreshConversation(page);
+    expect(await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"))).not.toBe(activeSessionId);
+    await expect(page.getByRole("link", { name: "打开编辑器", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "打开历史记录", exact: true }).click();
+    await page.locator(`[data-history-session-id="${activeSessionId}"]`).getByRole("button").first().click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"))).toBe(activeSessionId);
+    await page.getByRole("button", { name: /^产物/u }).click();
+    await expect(drawer.getByRole("link", { name: "打开编辑器", exact: true })).toHaveAttribute("href", `/resume?branchId=${encodeURIComponent(String(target.id))}`);
+  });
+
+  test("CASE L3 P522 task-confirmed evidence persists through Hermes tailoring", async ({ page }) => {
+    test.setTimeout(240_000);
+    const trace = observeRuntimeAndBridge(page);
+    closeoutTraces.set(page, trace);
+    await openWorkspace(page);
+    const previous = new Set((await readStore(page, "resumeBranches")).map((branch) => branch.id));
+    await prepareCoreSourceResume(page);
+    const source = (await readStore(page, "resumeBranches")).find((branch) => !previous.has(branch.id) && branch.branchPurpose === "general")!;
+    const profiles = await readStore(page, "profiles");
+    const fact = "使用 Python 完成数据处理。";
+    expect(JSON.stringify(source)).not.toContain("Python");
+    expect(JSON.stringify(profiles)).not.toContain(fact);
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
+    const confirmation = page.locator(".agent-confirmation");
+    await expect.poll(async () => {
+      if (await confirmation.isVisible()) return "confirmation";
+      const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+      const session = (await readStore(page, "agentSessions")).find((row) => row.id === id);
+      const checkpoint = (session?.taskState as { knownSlots?: { facadeCheckpoint?: { businessStatus?: string; persistenceVerified?: boolean; jobId?: string } } } | undefined)?.knownSlots?.facadeCheckpoint;
+      return checkpoint?.businessStatus === "committed" && checkpoint.persistenceVerified && checkpoint.jobId
+        && (await readStore(page, "jobDescriptions")).some((job) => job.id === checkpoint.jobId) ? "saved" : "pending";
+    }, { timeout: 90_000 }).not.toBe("pending");
+    if (await confirmation.isVisible()) await confirmation.getByRole("button", { name: "确认", exact: true }).click();
+    await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+    await send(page, "P51-C02-FIT 这个岗位适合我吗？");
+    await expectAssistant(page, "C02FITCOMPLETE");
+    await installCoreWritingProvider(page);
+    await page.route("**/api/ai/structured", async (route) => {
+      const body = route.request().postDataJSON() as { task: string; input: { target: { sectionId: string; itemId: string; fieldPath: string };
+        currentContent: { fieldValue: string | string[] }; relevantRequirements: Array<{ requirementId: string }>;
+        allowedEvidenceRefs: unknown[]; evidenceBundle?: { confirmedUserDeclarations?: Array<{ value?: string }> } } };
+      if (body.task !== "resume-tailor-diff") return route.fallback();
+      const input = body.input;
+      const confirmed = input.evidenceBundle?.confirmedUserDeclarations?.some((item) => item.value === fact);
+      const original = input.currentContent.fieldValue;
+      const diffs = confirmed && Array.isArray(original) ? [{ target: { sectionId: input.target.sectionId, itemId: input.target.itemId, fieldPath: input.target.fieldPath }, operation: "replace", original,
+        value: [...original, fact], reason: "使用本任务中用户确认的事实", requirementIds: input.relevantRequirements.map((item) => item.requirementId),
+        targetKeywords: [], evidenceRefs: input.allowedEvidenceRefs, supportLevel: "user_declared" }] : [];
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, task: body.task,
+        promptVersion: "p522-task-fact", output: ResumeTailoringDiffModelOutputSchema.parse({ diffs, clarifications: [] }),
+        meta: { provider: "deterministic", model: "task-fact", inputLength: 1, outputLength: 1, latencyMs: 1 } }) });
+    });
+    await send(page, `P51-C02-TAILOR P522-TASK-FACT 我曾${fact}请先核实后再用于这个岗位。`);
+    const activeId = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+    await expect.poll(async () => {
+      const session = (await readStore(page, "agentSessions")).find((row) => row.id === activeId);
+      const task = session?.taskState as { knownSlots?: { tailoringSession?: { plan?: { questionPlan?: { activeQuestionId?: string } } } } } | undefined;
+      return task?.knownSlots?.tailoringSession?.plan?.questionPlan?.activeQuestionId;
+    }, { timeout: 60_000 }).toBeTruthy();
+    await expect(page.locator(".agent-message-row.is-assistant").last()).toContainText(/岗位看重|接触过|情况/u);
+    await send(page, fact);
+    await expect.poll(async () => (await readStore(page, "agentMessages")).some((message) => message.sessionId === activeId
+      && message.role === "user" && message.content === fact && Boolean((message.metadata as Record<string, unknown> | undefined)?.tailoringAnswerReceipt)), { timeout: 60_000 }).toBe(true);
+    await page.getByRole("button", { name: "查看简历修改", exact: true }).click();
+    const review = page.getByRole("group", { name: "岗位定制修改预览" });
+    await expect(review).toContainText(fact, { timeout: 60_000 });
+    while (await review.getByRole("button", { name: "采用", exact: true }).count()) await review.getByRole("button", { name: "采用", exact: true }).first().click();
+    await review.getByRole("button", { name: "提交本次选择", exact: true }).click();
+    await expect(page.getByRole("region", { name: "应用这些简历修改？" })).toBeVisible();
+    await page.getByRole("button", { name: "生成岗位简历", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "resumeBranches")).find((branch) => branch.sourceBranchId === source.id && branch.branchPurpose === "job_specific")?.currentRevisionId, { timeout: 60_000 }).toBeTruthy();
+    const target = (await readStore(page, "resumeBranches")).find((branch) => branch.sourceBranchId === source.id && branch.branchPurpose === "job_specific")!;
+    const audit = (await readStore(page, "appMeta")).find((row) => row.key === `tailoring-provenance:${target.currentRevisionId}`);
+    expect(audit).toBeTruthy();
+    expect(JSON.stringify(audit)).toContain(fact);
+    expect(JSON.stringify(target)).toContain(fact);
+    expect(await readStore(page, "profiles")).toEqual(profiles);
+    await page.reload();
+    expect((await readStore(page, "resumeBranches")).find((branch) => branch.id === target.id)?.currentRevisionId).toBe(target.currentRevisionId);
+    expect((await readStore(page, "appMeta")).find((row) => row.key === audit!.key)).toEqual(audit);
   });
 
   test("CASE M Core-02 — new material to confirmed Profile, General Resume, Job, isolated tailoring and PDF", async ({ page }, testInfo) => {
@@ -1117,6 +1340,10 @@ async function expectTailoringReview(page: Page, trace: ReturnType<typeof observ
     const receipt = value as { result?: { ok?: boolean; data?: { status?: string; workflowStage?: string } } };
     return receipt.result?.ok && receipt.result.data?.status === "review_ready" && receipt.result.data.workflowStage === "preview_changes";
   })).toBe(true);
+  if (!await page.locator(".agent-tailoring-inline").isVisible()) {
+    await page.getByRole("button", { name: "查看简历修改", exact: true }).click();
+    await expect(page.getByRole("complementary", { name: "任务产物" })).toBeVisible();
+  }
   await expect(page.locator(".agent-tailoring-inline")).toBeVisible();
 }
 

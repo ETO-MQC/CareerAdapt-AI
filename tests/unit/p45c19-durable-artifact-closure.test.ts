@@ -300,7 +300,7 @@ async function createTailoringFixture(label: string) {
     target: { sectionId: "summary", itemId: summary.id, fieldPath: "text" as const },
     operation: "replace" as const,
     original: summary.data.text,
-    value: "基于数据分析项目完成结构化交付，并突出与目标岗位相关的分析经验。",
+    value: "基于数据分析项目，使用 Stata 清洗 31 个省级样本并完成区域差异分析。",
     reason: "验证耐久岗位产物写入",
     requirementIds: [],
     targetKeywords: [],

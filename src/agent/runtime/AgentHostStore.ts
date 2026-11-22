@@ -7894,7 +7894,8 @@ export class AgentHostStore {
         toolName,
         toolInput,
         operationId,
-        signal
+        signal,
+        careerSessionBinding: careerSessionBindingForSession(current)
       })
     });
     current = projectTaskStateIntoSession(current, driver.taskState);
@@ -8159,8 +8160,9 @@ export class AgentHostStore {
     session: AgentSession,
     action: Extract<AgentArtifactAction, { type: "tailoring_diff_stage_decision" }>,
     pageContext: AgentPageContext,
-    revision: number | undefined
-  ) {
+    revision: number | undefined,
+    saveAttempt = 0
+  ): Promise<AgentSession> {
     const taskState = session.taskState;
     const tailoring = objectValue(taskState?.knownSlots.tailoringSession);
     const plan = objectValue(tailoring.plan);
@@ -8233,7 +8235,20 @@ export class AgentHostStore {
       message: "已暂存这项选择；点击“提交本次选择”后统一处理。",
       retryable: false
     });
+    current = { ...current, updatedAt: now };
     const saved = await this.dependencies.persistence.save(current);
+    const persistedReviews = Array.isArray(saved.taskState?.knownSlots.tailoringDraftDiffReviews)
+      ? saved.taskState.knownSlots.tailoringDraftDiffReviews.map(objectValue) : [];
+    const persisted = persistedReviews.find(review => review.diffId === action.diffId);
+    if (!persisted || persisted.decision !== action.decision
+      || JSON.stringify(persisted.editedValue) !== JSON.stringify(action.editedValue)) {
+      if (saveAttempt < 2) {
+        return this.resolveTailoringDiffStageDecision(saved, { ...action,
+          generatedDiffRevision: action.generatedDiffRevision ?? (typeof currentGeneratedDiffRevision === "number" ? currentGeneratedDiffRevision : 0) }, pageContext,
+          artifactActionRevision(saved.taskState, action), saveAttempt + 1);
+      }
+      throw new Error("tailoring_review_save_conflict");
+    }
     this.patchSession(saved, { turnStatus: "waiting_for_user" });
     void pageContext;
     return saved;
@@ -8410,7 +8425,8 @@ export class AgentHostStore {
         toolName,
         toolInput,
         operationId: driverOperationId,
-        signal
+        signal,
+        careerSessionBinding: careerSessionBindingForSession(current)
       })
     });
     currentTaskState = tailoringBoundary.taskState;
@@ -8757,7 +8773,8 @@ export class AgentHostStore {
           toolName,
           toolInput,
           operationId: driverOperationId,
-          signal
+          signal,
+          careerSessionBinding: careerSessionBindingForSession(executionSession)
         })
       });
       taskState = tailoringBoundary.taskState;

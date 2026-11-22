@@ -1066,7 +1066,8 @@ export function TailoringDiffRecord({
 }) {
   const proposed = renderValue(diff.value);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(renderValue(review.editedValue) || proposed);
+  const editableValue = review.editedValue ?? diff.value;
+  const [draft, setDraft] = useState(Array.isArray(editableValue) ? editableValue.join("\n") : String(editableValue ?? ""));
   const [submitting, setSubmitting] = useState(false);
   const status = String(review.status ?? "suggested");
   const decide = async (decision: "accept" | "edit" | "reject", editedValue?: string) => {

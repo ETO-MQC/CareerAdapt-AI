@@ -118,4 +118,55 @@ scripts/p36-parser-benchmark.ts
 .next-reference-template-final-20261120-1422/
 .next-research-layout-20261120-1814/
 
+# Common local build outputs and caches.
+.next*/
+.next-cache/
+.cache/
+.parcel-cache/
+coverage/
+.nyc_output/
+.vite/
+.eslintcache
+.stylelintcache
+
+# Local runtime and test data.
+.tmp/
+tmp/
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Editor and OS temporary files.
+.idea/
+.vscode/*.local.json
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+*~
+
+# Local screenshots and diagnostic output.
+运行图片/
+*.har
+*.trace
+
+# Additional tool caches and IDE metadata.
+.turbo/
+.vercel/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pnpm-store/
+.vs/
+*.user
+*.rsuser
+*.suo
+*.log
+
 

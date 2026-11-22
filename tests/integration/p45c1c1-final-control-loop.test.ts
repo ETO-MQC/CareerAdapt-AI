@@ -114,7 +114,7 @@ describe("P4.5c.1 final control-loop closure", () => {
       generatedDiffRevision: 0
     });
 
-    const acceptedSummary = "基于已核验的数据分析项目，突出样本清洗与区域差异分析交付。";
+    const acceptedSummary = "基于数据分析项目，使用 Stata 清洗 31 个省级样本并完成区域差异分析。";
     const fact = demoCareerProfile.experiences[0].facts[0];
     const evidence = {
       type: "experience_fact" as const,

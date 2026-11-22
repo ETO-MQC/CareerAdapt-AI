@@ -25,7 +25,7 @@ async function fixture() {
   if (summary.data.sectionType !== "summary") throw new Error("summary fixture missing");
   const fact = demoCareerProfile.experiences[0].facts[0];
   const diff: ResumeTailoringDiff = { target: { sectionId: "summary", itemId: summary.id, fieldPath: "text" }, operation: "replace", original: summary.data.text,
-    value: "基于已核验经历，突出与目标岗位相关的交付能力。", reason: "保留真实职责与定性交付", requirementIds: [], targetKeywords: [], supportLevel: "verified",
+    value: "经济管理方向本科生，关注跨境业务流程、数据分析和AI应用。", reason: "保留真实职责与定性交付", requirementIds: [], targetKeywords: [], supportLevel: "verified",
     evidenceRefs: [{ type: "experience_fact", experienceId: demoCareerProfile.experiences[0].id, factId: fact.id, factQuote: fact.statement, factText: fact.statement }] };
   const sessionFor = (index: number) => {
     const created = createTailoringSessionCommand({ operationId: `jd03-session-${index}`, profile: demoCareerProfile, branch: general.branch, job: jobs[index] }).session;
@@ -43,10 +43,10 @@ describe("JD-03 formal isolated revision acceptance", () => {
     const oldRevision = await f.repository.getResumeRevision(first.resultResumeRevisionId);
     const general = await f.repository.getResumeBranch(f.general.branch.id);
     const profile = await f.repository.getProfile(demoCareerProfile.id);
-    const diff: ResumeTailoringDiff = { ...f.diff, original: f.diff.value, value: "基于已核验经历，展示相关项目交付。" };
+    const diff: ResumeTailoringDiff = { ...f.diff, original: f.diff.value, value: "经济管理方向本科生，关注AI应用、跨境业务流程和数据分析。" };
     const created = createTailoringSessionCommand({ operationId: "existing-next-session", profile: demoCareerProfile, branch, job: f.jobs[0] }).session;
     const session = TailoringSessionSchema.parse({ ...created, plan: { ...created.plan, diffs: [diff], diffReviews: [] } });
-    const edited = "基于已核验经历，展示目标岗位相关交付。";
+    const edited = "经济管理方向本科生，关注数据分析、跨境业务流程和AI应用。";
     const reviewed = reviewTailoringDiffCommand({ operationId: "existing-next-review", session, diffId: tailoringDiffId(diff), decision: "edit", editedValue: edited });
     expect(await f.repository.getResumeBranch(branch.id)).toEqual(branch);
     const applied = await f.service.applyTailoringChanges({ session: reviewed.session, selectedDiffs: reviewed.selectedDiffs, confirmedRequirementIds: [] }, "existing-next-apply");

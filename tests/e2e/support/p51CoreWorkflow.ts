@@ -6,7 +6,7 @@ import { openManualPageTab } from "./g7b2Ui";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
 import { CareerProfileSchema, JobDescriptionSchema, ResumeBranchSchema, ResumeTailoringDiffModelOutputSchema } from "@/domain/schemas";
 
-export async function prepareCoreSourceResume(page: Page) {
+export async function prepareCoreSourceResume(page: Page, multipleProjects = false) {
     await page.goto("/resume");
     await page.getByRole("button", { name: /导入已有简历/ }).click();
     const dialog = page.getByRole("dialog", { name: "导入简历" });
@@ -19,7 +19,16 @@ export async function prepareCoreSourceResume(page: Page) {
         startDate: "2025-01", endDate: "2025-06", current: false,
         description: "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
         highlights: ["参与 AI 应用项目的需求梳理、原型设计和功能验收。"], tools: [], outcomes: [], customFields: []
-      }] }], unclassifiedBlocks: []
+      }, ...(multipleProjects ? [
+        { id: "core-orders", sectionType: "project", title: "订单管理项目", role: "项目成员",
+          startDate: "2024-01", endDate: "2024-06", current: false,
+          description: "参与 订单管理项目的订单整理、流程梳理和页面测试。",
+          highlights: ["参与 订单管理项目的订单整理、流程梳理和页面测试。"], tools: [], outcomes: [], customFields: [] },
+        { id: "core-service", sectionType: "project", title: "客户支持项目", role: "项目成员",
+          startDate: "2024-07", endDate: "2024-12", current: false,
+          description: "参与 客户支持项目的用户访谈、材料整理和活动协助。",
+          highlights: ["参与 客户支持项目的用户访谈、材料整理和活动协助。"], tools: [], outcomes: [], customFields: [] }
+      ] : [])] }], unclassifiedBlocks: []
     }));
     await dialog.getByRole("button", { name: "导入 JSON", exact: true }).click();
     await dialog.locator("label.import-target-option").filter({ hasText: "创建新人物" }).click();
@@ -111,7 +120,7 @@ export async function completeCoreResumeWorkflow(page: Page, jobId: string) {
     await verifyCoreResumePdf(page, branchId);
 }
 
-export async function verifyCoreResumePdf(page: Page, branchId: string) {
+export async function verifyCoreResumePdf(page: Page, branchId: string, outputPath?: string) {
     const after = (await readStore(page, "resumeBranches")).find(branch => branch.id === branchId)!;
     await openManualPageTab(page);
     const downloadPromise = page.waitForEvent("download", { timeout: 120_000 });
@@ -121,7 +130,7 @@ export async function verifyCoreResumePdf(page: Page, branchId: string) {
     expect(response.status()).toBe(200);
     const outputDir = path.resolve("artifacts/p51-core");
     mkdirSync(outputDir, { recursive: true });
-    const pdfPath = path.join(outputDir, "targeted-resume.pdf");
+    const pdfPath = outputPath ?? path.join(outputDir, "targeted-resume.pdf");
     await download.saveAs(pdfPath);
     const binary = ["E:/Pycharm/Lib/poppler/Library/bin/pdftotext.exe", "C:/Users/mqcin/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdftotext.exe"].find(existsSync) ?? "pdftotext";
     const text = execFileSync(binary, [pdfPath, "-"], { encoding: "utf8" });
@@ -137,7 +146,7 @@ export async function verifyCoreResumePdf(page: Page, branchId: string) {
         expect(normalize(text)).toContain(normalize(highlight));
       }
     }
-    return { text, previewText, revisionId: after.currentRevisionId };
+    return { text, previewText, revisionId: after.currentRevisionId, pdfPath };
 }
 
 export async function readStore(page: Page, name: string): Promise<Array<Record<string, unknown>>> {
@@ -153,7 +162,7 @@ export async function readStore(page: Page, name: string): Promise<Array<Record<
   }), name);
 }
 
-export async function installCoreWritingProvider(page: Page) {
+export async function installCoreWritingProvider(page: Page, multipleProjects = false) {
   // Only external writing responses are controlled; domain validation,
   // Fact Guard, review, Repository, preview and PDF remain the real product.
   await page.route("**/api/ai/structured", async route => {
@@ -168,8 +177,9 @@ export async function installCoreWritingProvider(page: Page) {
     } else if (body.task === "resume-tailor-diff") {
       const input = body.input as unknown as { target: { sectionId: string; itemId: string; fieldPath: string }; currentContent: { fieldValue: string | string[] }; relevantRequirements: Array<{ requirementId: string }>; allowedEvidenceRefs: unknown[] };
       const original = input.currentContent.fieldValue;
-      const rephrase = (line: string) => line.includes("需求梳理")
-        ? "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。" : line;
+      const rephrase = (line: string) => multipleProjects
+        ? line.replace(/^参与 (.+项目)的(.+)。$/u, "参与$2等 $1工作。")
+        : line.includes("需求梳理") ? "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。" : line;
       const value = Array.isArray(original) ? original.map(rephrase) : rephrase(original);
       output = ResumeTailoringDiffModelOutputSchema.parse({ diffs: JSON.stringify(original) === JSON.stringify(value) ? [] : [{ target: { sectionId: input.target.sectionId, itemId: input.target.itemId, fieldPath: input.target.fieldPath },
         operation: "replace", original, value, reason: "重排已确认职责，保留参与边界与来源",

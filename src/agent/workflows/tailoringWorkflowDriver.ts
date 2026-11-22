@@ -139,6 +139,10 @@ export async function advanceTailoringWorkflow(
           taskState.stage
         );
       }
+      if (Array.isArray(record(previewed.data).rejectedDiffs) && (record(previewed.data).rejectedDiffs as unknown[]).length > 0) {
+        return recoverableFailure(taskState, input.operationId, "tailoring_preview_rejected",
+          "部分修改未通过核验，请重新检查对应建议后再提交；本次没有写入简历。", taskState.stage);
+      }
       taskState = new AgentTaskStateReducer().reduce(taskState, {
         type: "tool_observation",
         toolName: previewed.toolName,

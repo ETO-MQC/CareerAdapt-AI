@@ -65,6 +65,15 @@ describe("stage C2 adaptation draft and fact guard", () => {
     ]));
   });
 
+  it("accepts the exact project-list inversion while rejecting added work or ownership", () => {
+    const originalText = "参与 AI 应用项目的需求梳理、原型设计和功能验收。";
+    const check = (checkedText: string) => runRuleFactGuard({ originalText, checkedText, usedEvidenceRefs: [], now: TEST_TIME });
+    expect(check("参与需求梳理、原型设计和功能验收等 AI 应用项目工作。").status).toBe("pass");
+    expect(check("参与需求梳理、原型设计和功能验收以及独立开发等 AI 应用项目工作。").status).not.toBe("pass");
+    expect(check("主导需求梳理、原型设计和功能验收等 AI 应用项目工作。").status).not.toBe("pass");
+    expect(check("参与需求梳理、原型设计和功能验收等其他项目工作。").status).not.toBe("pass");
+  });
+
   it("keeps rule findings when AI fact guard fails", () => {
     const ruleResult = runRuleFactGuard({
       originalText: "协助整理活动数据。",

@@ -246,7 +246,8 @@ function chooseResponse({ mode, messages, tools }) {
     const checkpointId = latestUserText(messages).match(/OLD-CHECKPOINT=([\w-]+)/u)?.[1];
     return { toolCall: { name: findToolName(tools, "career.workflow.tailor_resume"), arguments: JSON.stringify({ checkpointId }) } };
   }
-  if (mode === "integration" && /P51-C02-(?:FIT|TAILOR)/u.test(latestUserText(messages))) {
+  if (mode === "integration" && (/P51-C02-(?:FIT|TAILOR)/u.test(latestUserText(messages))
+    || (latestUserText(messages) === "使用 Python 完成数据处理。" && messages.some(message => message?.role === "user" && messageText(message.content).includes("P522-TASK-FACT"))))) {
     const latestUserIndex = messages.findLastIndex(message => message?.role === "user");
     const turnResults = messages.slice(latestUserIndex + 1).filter(message => message?.role === "tool");
     const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
@@ -266,7 +267,8 @@ function chooseResponse({ mode, messages, tools }) {
       if (turnResults.at(-1)?.name?.includes("tailor_resume")) return { content: "C02TAILORREADY，请核对修改提案。" };
       if (!resume) return call("career.resume.list", {});
       if (!jobId) return call("career.job.list", {});
-      if (resume && jobId) return call("career.workflow.tailor_resume", { jobId, sourceResumeId: resume.id, mode: "steady" });
+      if (resume && jobId) return call("career.workflow.tailor_resume", { jobId, sourceResumeId: resume.id,
+        mode: messages.some(message => message?.role === "user" && messageText(message.content).includes("P522-TASK-FACT")) ? "competitive" : "steady" });
     }
     return { content: "C02 fixture missing a prior saved Job or Resume receipt." };
   }

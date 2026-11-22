@@ -32,6 +32,8 @@ import { stableHashText } from "@/services/security/text";
 import { consumeTailoringQuestionAnswer, createTailoringPlan, createTailoringQuestionPlan, isTailoringQuestionPlanComplete, tailoringAnswerRevisionHash } from "./tailoringService";
 import { tailoringDiffId } from "./tailoringDiffId";
 import { CandidateEvidenceMatrixSchema } from "@/domain/schemas/careerIntelligence";
+import { assertTailoringDiffFacts } from "@/domain/jobOptimization/tailoringFactGuard";
+import type { TailoringTaskEvidence } from "@/domain/jobOptimization/tailoringTaskEvidence";
 import type { buildCareerIntelligence } from "@/domain/jobOptimization/careerIntelligence";
 
 export { tailoringDiffId } from "./tailoringDiffId";
@@ -569,16 +571,21 @@ export function reviewTailoringDiffCommand(input: z.input<typeof ReviewTailoring
   const diff = parsed.session.plan.diffs?.find((item) => tailoringDiffId(item) === parsed.diffId);
   if (!diff) throw commandError("tailoring_diff_not_found");
   if (parsed.decision === "edit" && parsed.editedValue === undefined) throw commandError("tailoring_diff_edit_missing");
+  const editedValue = parsed.decision === "edit" && diff.operation === "replace"
+    && Array.isArray(diff.value) && typeof parsed.editedValue === "string"
+    ? parsed.editedValue.split(/\r?\n/u).map(value => value.trim()).filter(Boolean)
+    : parsed.editedValue;
+  if (parsed.decision === "edit" && Array.isArray(editedValue) && editedValue.length === 0) throw commandError("tailoring_diff_edit_missing");
   const before = parsed.session.plan.diffReviews ?? [];
   const existing = before.find((item) => item.diffId === parsed.diffId);
   const nextStatus = parsed.decision === "accept" ? "accepted" as const : parsed.decision === "edit" ? "edited" as const : "rejected" as const;
-  if (existing?.status === nextStatus && JSON.stringify(existing.editedValue) === JSON.stringify(parsed.decision === "edit" ? parsed.editedValue : undefined)) {
+  if (existing?.status === nextStatus && JSON.stringify(existing.editedValue) === JSON.stringify(parsed.decision === "edit" ? editedValue : undefined)) {
     return reviewTailoringDiffResult(parsed.operationId, parsed.session, true);
   }
   const review = {
     diffId: parsed.diffId,
     status: nextStatus,
-    editedValue: parsed.decision === "edit" ? parsed.editedValue : undefined,
+    editedValue: parsed.decision === "edit" ? editedValue : undefined,
     updatedAt: new Date().toISOString()
   };
   const known = new Map(before.map((item) => [item.diffId, item]));
@@ -614,10 +621,11 @@ function reviewTailoringDiffResult(operationId: string, session: TailoringSessio
   };
 }
 
-export function previewTailoringChangesCommand(input: z.input<typeof PreviewTailoringChangesCommandInputSchema>, signal?: AbortSignal) {
+export function previewTailoringChangesCommand(input: z.input<typeof PreviewTailoringChangesCommandInputSchema>, signal?: AbortSignal, taskEvidence: TailoringTaskEvidence[] = []) {
   assertNotCancelled(signal);
   const parsed = PreviewTailoringChangesCommandInputSchema.parse(input);
   const reviewed = reviewedTailoringDiffs(parsed.session);
+  assertTailoringDiffFacts(parsed.session.profile, reviewed, taskEvidence);
   const answerContext = buildTailoringAnswerContext(parsed.session);
   return {
     operationId: parsed.operationId,

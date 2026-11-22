@@ -20,6 +20,7 @@ import {
 } from "@/domain/schemas";
 import { ingestCandidateListing, manualCandidateIdentity, parseCandidateToDraft } from "@/domain/jobDiscovery/candidatePipeline";
 import type { AgentToolExecutionContext } from "@/agent/contracts/agentTool";
+import { mayUseTailoringTaskEvidence } from "@/domain/jobOptimization/tailoringTaskEvidence";
 import { projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization/v3/project";
 import { parseUserPreferences } from "@/domain/resumeComposition/ResumeCompositionPreferences";
 import { extractExplicitTargetRole } from "@/domain/branch/targetRole";
@@ -2196,12 +2197,18 @@ export class BrowserAgentToolService implements AgentToolServices {
     }, signal);
   }
 
-  async previewTailoringChanges(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+  async previewTailoringChanges(rawInput: unknown, operationId: string, signal?: AbortSignal, context?: AgentToolExecutionContext) {
     const input = parseTailoringChanges(rawInput);
-    return previewTailoringChangesCommand({ operationId, ...input }, signal);
+    const session = input.session;
+    const reviewed = reviewedTailoringDiffs(session);
+    const evidence = session.branch.currentRevisionId && mayUseTailoringTaskEvidence(reviewed) ? await this.repository.resolveTailoringTaskEvidence({
+      binding: context?.careerSessionBinding, taskId: session.id, jobId: session.job.id, branchId: session.branch.id,
+      baseRevisionId: session.branch.currentRevisionId, diffs: reviewed
+    }) : [];
+    return previewTailoringChangesCommand({ operationId, ...input }, signal, evidence);
   }
 
-  async applyTailoringChanges(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+  async applyTailoringChanges(rawInput: unknown, operationId: string, signal?: AbortSignal, context?: AgentToolExecutionContext) {
     const input = parseTailoringChanges(rawInput);
     const session = input.session;
     const reviewed = reviewedTailoringDiffs(session);
@@ -2216,6 +2223,9 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!profile) throw toolError("profile_not_found", "资料库不存在或已被移除。");
     const acceptedDiffIds = reviewed.map((diff) => tailoringDiffId(diff));
     const checkpointId = resumeArtifactWriteCheckpointId(operationId);
+    const taskEvidenceContext = context?.careerSessionBinding
+      ? { binding: context.careerSessionBinding, taskId: session.id }
+      : undefined;
     const checkpointCreatedAt = new Date().toISOString();
     const checkpoint: ResumeArtifactWriteCheckpoint = {
       schemaVersion: 1,
@@ -2248,7 +2258,8 @@ export class BrowserAgentToolService implements AgentToolServices {
         ? await this.repository.applyTailoringDiffs({
           branchId: session.branch.id, jobId: session.job.id, expectedBranchRevision: session.branch.revision,
           expectedRevisionId: session.branch.currentRevisionId, expectedProfileRevision: session.profile.version,
-          expectedJobRevision: session.job.updatedAt, diffs: reviewed, confirmedRequirementIds: input.confirmedRequirementIds, operationId
+          expectedJobRevision: session.job.updatedAt, diffs: reviewed, confirmedRequirementIds: input.confirmedRequirementIds, operationId,
+          taskEvidenceContext
         })
         : await this.repository.deriveAndApplyTailoringDiffsAtomic({
         sourceBranchId: session.branch.id,
@@ -2262,6 +2273,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         diffs: reviewed,
         confirmedRequirementIds: input.confirmedRequirementIds,
         operationId,
+        taskEvidenceContext,
         name: `${session.branch.name} · ${session.job.title}`.slice(0, 120)
         });
       assertNotAborted(signal);
@@ -2402,14 +2414,22 @@ export class BrowserAgentToolService implements AgentToolServices {
       const safeErrorCode = error && typeof error === "object" && "code" in error && typeof error.code === "string"
         ? error.code
         : "resume_artifact_write_failed";
-      await this.repository.saveResumeArtifactWriteCheckpoint({
-        ...checkpoint,
-        status: safeErrorCode === "artifact_commit_visibility_verification_failed"
-          ? "visibility_verification_failed"
-          : "write_failed",
-        safeErrorCode,
-        updatedAt: failedAt
-      }).catch(() => undefined);
+      // A failure after the transaction may have lost only the response. Check
+      // the durable operation before labeling the write as failed or retrying.
+      const committed = await this.repository.getTailoringOperationResult(operationId);
+      try {
+        await this.repository.saveResumeArtifactWriteCheckpoint({
+          ...checkpoint,
+          status: committed || safeErrorCode === "artifact_commit_visibility_verification_failed"
+            ? "visibility_verification_failed"
+            : "write_failed",
+          ...(committed ? { resultResumeId: committed.branchId, resultResumeRevisionId: committed.revisionId } : {}),
+          safeErrorCode,
+          updatedAt: failedAt
+        });
+      } catch (checkpointError) {
+        throw new AggregateError([error, checkpointError], "tailoring_write_checkpoint_failed");
+      }
       throw error;
     }
   }

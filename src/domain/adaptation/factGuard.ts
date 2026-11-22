@@ -54,10 +54,12 @@ export function runRuleFactGuard(input: {
   originalText: string;
   checkedText: string;
   usedEvidenceRefs: MatchEvidenceRef[];
+  /** Only callers that resolved persisted task evidence may supply these statements. */
+  verifiedTaskFacts?: string[];
   now?: string;
 }): FactGuardResult {
   const now = input.now ?? new Date().toISOString();
-  const evidenceText = input.usedEvidenceRefs.map((ref) => `${ref.factText} ${ref.factQuote}`).join(" ");
+  const evidenceText = [...input.usedEvidenceRefs.map((ref) => `${ref.factText} ${ref.factQuote}`), ...(input.verifiedTaskFacts ?? [])].join(" ");
   const findings: FactGuardFinding[] = [];
 
   findings.push(...detectNewNumbers(input.originalText, input.checkedText, evidenceText));
